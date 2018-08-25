@@ -1,0 +1,16 @@
+name = "Libaudio"
+uuid = "492fcaa0-a483-11e8-0aa5-8960d485180b"
+authors = ["LiXia "]
+version = "0.1.0"
+
+[deps]
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+KahanSummation = "8e2b3108-d4c1-50be-a7a2-16352aec75c3"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+WAV = "8149f6b0-98f6-5db9-b78f-408fbbb8ef88"

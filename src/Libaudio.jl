@@ -10,6 +10,19 @@ using Random
 
 
 
+modulepath(name) = realpath(joinpath(dirname(pathof(name)),".."))
+"""
+    init(module)
+
+install binary dependencies to "C:\\Drivers\\Julia\\"
+"""
+function init(name)
+    mkpath("C:\\Drivers\\Julia\\")
+    modpath = modulepath(name)
+    cp(joinpath(modpath, "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
+end
+
+
 
 
 """
@@ -1162,7 +1175,7 @@ end
 
 
 
-modulepath(name) = realpath(joinpath(dirname(pathof(name)),".."))
+
 
 
 """
@@ -1285,7 +1298,7 @@ function resample_vhq(input::AbstractVector{T}, fi, fo) where T<:Real
     resampled = zeros(Float32, n)
     resampled_n_return = zeros(UInt64,1)
 
-    soxerr = ccall((:soxr_oneshot, "D:/Depot/Pkg/Libaudio/deps/usr/lib/libsoxr"),
+    soxerr = ccall((:soxr_oneshot, "C:\\Drivers\\Julia\\libsoxr"),
                     Ptr{Int8},
                     (Float64, Float64, UInt32, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}), 
                     Float64.(fi), Float64.(fo), 1, block, length(block), C_NULL, resampled, length(resampled), resampled_n_return, C_NULL, C_NULL, C_NULL)

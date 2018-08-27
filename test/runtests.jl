@@ -3,6 +3,7 @@ using Test
 using WAV
 
 
+Libaudio.init(Libaudio)
 
 
 function weighting_a_truth_48000()
@@ -270,8 +271,8 @@ function list_test()
     (shallowfolders, deepfolders, shallowfiles, deepfiles)
 end
 let (shallowfolders, deepfolders, shallowfiles, deepfiles) = list_test()
-    @test length(shallowfolders) == 3
-    @test length(deepfolders) == 5
+    @test length(shallowfolders) ≥ 3
+    @test length(deepfolders) ≥ 5
     @test length(shallowfiles) == 0
     @test length(deepfiles) == 2
 end

@@ -1000,6 +1000,13 @@ end
 
 """
 return the vector of index indicating the start of the signal in each channel of 'encoded'
+
+# Arguments
+- 'encoded::AbstractMatrix': encoded signal
+- 'symbol::AbstractVector': symbol template
+- 't_decay': symbol decay time in seconds
+- 't_signal': signal time in seconds, for ess case it involves the active length and the ess decaying
+- 'fs': sample rate
 """
 function decode_syncsymbol(encoded::AbstractMatrix, symbol::AbstractVector, t_decay, t_signal, fs)
     n = size(encoded,2)

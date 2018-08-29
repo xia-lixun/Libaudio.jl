@@ -57,9 +57,10 @@ end
 
 function filt_truth()
     y = [3.150000000000000e+01, -1.675000000000000e+01, 5.125000000000000e+00, 5.031250000000000e+01, -4.271875000000000e+01, 3.453125000000000e+00, 1.377578125000000e+02, -1.690429687500000e+02]
+    [y y y y]
 end
 let b = [7,6,5], a = [2,3,4], x = [9,1,5,2,7,4,8,3], truth = filt_truth()
-    y = Libaudio.filt(b,a,x)
+    y = Libaudio.filt(b,a,[x x x x])
     @test isapprox(y, truth, atol = 1e-17)
 end
 

@@ -241,6 +241,9 @@ end
 
 
 
+
+
+
 """
     filt(b, a, x)
 
@@ -276,12 +279,12 @@ function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat)
     nx1 = size(x,1)
 
     if n != 0 #ARMA
-        for j = 1:nx2
-            for i = m+1:nx1
+        Threads.@threads for j = 1:nx2
+            @inbounds for i = m+1:nx1
                 y[i-m,j] = dot(br, view(x,i-m:i,j)) - dot(as, view(s,:,j))
                 # ---------------------------
                 # to move elements of array note the direction!
-                for k = n:-1:2
+                @simd for k = n:-1:2
                     s[k,j] = s[k-1,j]
                 end
                 # s[2:end,j] = s[1:end-1,j]
@@ -290,9 +293,9 @@ function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat)
             end
         end
     else #MA
-        for j = 1:nx2
+        Threads.@threads for j = 1:nx2
             for i = m+1:nx1
-                y[i-m,j] = dot(br, view(x, i-m:i, j))
+                @inbounds y[i-m,j] = dot(br, view(x, i-m:i, j))
                 # for k = 1:nb
                 #     y[i-m,j] += br[k] * x[i-m-1+k,j]
                 # end
@@ -300,7 +303,7 @@ function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat)
             end
         end
     end
-    y
+    return y
 end
 
 

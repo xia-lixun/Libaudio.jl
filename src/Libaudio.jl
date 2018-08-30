@@ -16,10 +16,9 @@ modulepath(name) = realpath(joinpath(dirname(pathof(name)),".."))
 
 install binary dependencies to "C:\\Drivers\\Julia\\"
 """
-function init(name)
+function __init__()
     mkpath("C:\\Drivers\\Julia\\")
-    modpath = modulepath(name)
-    cp(joinpath(modpath, "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
+    cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
 end
 
 

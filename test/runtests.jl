@@ -3,7 +3,7 @@ using Test
 using WAV
 
 
-Libaudio.init(Libaudio)
+
 
 
 function weighting_a_truth_48000()

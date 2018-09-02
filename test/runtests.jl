@@ -22,6 +22,24 @@ let (x, x16, x24, x32) = wavio_test()
 end
 
 
+function wavalid_test()
+    path = Libaudio.modulepath(Libaudio)
+    x = 0.1 * randn(192000,8)
+    y = convert(Matrix{Float32},x)
+    Libaudio.wavwrite(x, joinpath(path,"test/valid_d2f.wav"), 48000, 32)
+    Libaudio.wavwrite(y, joinpath(path,"test/valid_f2f.wav"), 48000, 32)
+
+    xd,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_d2f.wav"),"double")
+    yf1,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_f2f.wav"), "native")
+    yf2,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_f2f.wav"))
+    x,xd,y,yf1,yf2
+end
+let (x,xd,y,yf1,yf2) = wavalid_test()
+    @test y == yf1
+    @test y == yf2
+    @test isapprox(x, xd, atol=1e-5)
+end
+
 
 
 function weighting_a_truth_48000()

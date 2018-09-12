@@ -19,8 +19,8 @@ install binary dependencies to "C:\\Drivers\\Julia\\"
 function __init__()
     mkpath("C:\\Drivers\\Julia\\")
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
+    cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libwav.dll"), "C:\\Drivers\\Julia\\libwav.dll", force=true)
 end
-
 
 
 
@@ -1647,6 +1647,27 @@ function wavwrite(samples::Array, filename::String, Fs=8000, nbits=16)
     finalizer(close, io)
     return wavwrite(samples, io, Fs, nbits)
 end
+
+
+
+
+
+
+
+function wavinfo(filename)
+    m = zeros(Int, 4) # m[1]-samples  m[2]-channels  m[3]-sample rate  m[4]-bits per sample
+    ccall((:wavinfo, "C:\\Drivers\\Julia\\libwav"), Int32, (Cstring, Ptr{Int}), filename, m)
+    m    
+end
+
+# m = wavinfo("foo.wav")
+# x = zeros(Float32, m[1] * m[2])
+function wavread!(filename, x)
+    ccall((:wavread, "C:\\Drivers\\Julia\\libwav"), Int32, (Cstring,Ptr{Float32}), filename, x)
+    return nothing
+end
+
+
 
 
 

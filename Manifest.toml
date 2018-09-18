@@ -79,9 +79,9 @@ uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[Polynomials]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "af883752c4935425a3ab30031a2069254c451b8b"
+git-tree-sha1 = "1a1eae52956658a6acae6fa1b6d6c3d488192895"
 uuid = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
-version = "0.5.0"
+version = "0.5.1"
 
 [[Printf]]
 deps = ["Unicode"]

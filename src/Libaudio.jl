@@ -20,7 +20,7 @@ function __init__()
     mkpath("C:\\Drivers\\Julia\\")
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libwav.dll"), "C:\\Drivers\\Julia\\libwav.dll", force=true)
-    # plotly()
+    plotly()
 end
 
 
@@ -575,7 +575,7 @@ extract symbols based on correlation coefficients.
 - 'rep::Integer': number of symbols can be found within the signal
 - 'dither': dB value for dithering, default to -160dB
 """
-function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=false, normcoeff=false, xaxis=1600, yaxis=400) where T<:LinearAlgebra.BlasFloat
+function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
     x = x + (rand(T,size(x)) .- T(0.5)) * T(10^(dither/20))
     n = length(x) 
     m = length(s)
@@ -590,7 +590,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     else
         ℝ = xcorr(s, x)
     end
-    verbose && (@info "peak value" maximum(ℝ))
+    verbose && printstyled("libaudio.extractsymbol: peak value $(maximum(ℝ))\n", color=:light_blue)
     vision && (box = plot(x, size=(xaxis,yaxis)))
     𝓡 = sort(ℝ[localmaxima(ℝ)], rev=true)
     isempty(𝓡) && (return (y, diff(peaks)))
@@ -603,11 +603,11 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     y[1:1+rb-lb] = x[lb:rb]
     ip = 1
     lbs[ip] = lb
-    1+rb-lb < m && (@warn "incomplete segment extracted!")
+    1+rb-lb < m && printstyled("libaudio.extractsymbol: incomplete segment extracted!\n", color=:light_red)
 
     pf2a, pf2b = parabolicfit2(ℝ[ploc-1:ploc+1])
     peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)
-    verbose && (@info "peak anchor-[$(ip)] in correlation" ploc peakspf2[ip])
+    verbose && printstyled("libaudio.extractsymbol: peak $(ip) location $(ploc) $(peakspf2[ip])\n", color=:light_blue) 
 
     if vision
         box_hi = maximum(x[lb:rb])
@@ -628,7 +628,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
 
                 pf2a, pf2b = parabolicfit2(ℝ[ploc-1:ploc+1])
                 peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)            
-                verbose && (@info "peak anchor-[$ip] in correlation" ploc, peakspf2[ip])
+                verbose && printstyled("libaudio.extractsymbol: peak $ip location $(ploc) $(peakspf2[ip])\n", color=:light_blue)
 
                 lb = n - ploc + 1
                 rb = min(lb + m - 1, length(x))
@@ -644,7 +644,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
                 end
 
                 y[1+(ip-1)*m : 1+(ip-1)*m+(rb-lb)] = x[lb:rb]
-                1+rb-lb < m && (@warn "incomplete segment extracted!")
+                1+rb-lb < m && printstyled("libaudio.extractsymbol: incomplete segment extracted!\n", color=:light_red)
                 
                 if ip == rep
                     break
@@ -713,13 +713,13 @@ function db20upa(
     end
 
     for c = 1:channels
-        lbs, pk, pkpf, xp = extractsymbol(view(x,:,c), s, repeat, normcoeff=normcoeff)
-        verbose && (@info "lb location in time and sample:" lbs./p.rate lbs)
+        lbs, pk, pkpf, xp = extractsymbol(view(x,:,c), s, repeat, verbose=verbose, normcoeff=normcoeff)
+        verbose && printstyled("libaudio.db20upa: signal left bound location $(lbs./p.rate) (sec) $(lbs) (samples)\n", color=:light_blue)
         xps,xpn = powerspectrum(xp, p, false, false, hann)
         xpsu = mean(xps, dims=2)
                 
         dbspl[c] = 10log10(sum(view(xpsu,hl:hh))) + (calibratorreading-offset)
-        verbose && (@info "channel $c spl in dB" dbspl[c])           
+        verbose && printstyled("libaudio.db20upa: channel $c level $(dbspl[c]) dBSPL\n", color=:light_blue)           
     end
     return dbspl
 end
@@ -767,7 +767,7 @@ function spl(
     fh = 12000, 
     calibratorreading = 114.0;
     weighting = "none",
-    verbose = false,
+    verbose = true,
     normcoeff = false)
 
     if lowercase(weighting) == "a"
@@ -775,7 +775,7 @@ function spl(
         r = filt(b, a, calibration)
         x = filt(b, a, measurement)
         s = filt(b, a, symbol)
-        verbose && (@info "spl: apply a-wighting")
+        verbose && printstyled("libaudio.spl: a-wighting applied\n", color=:light_blue)
     else
         r = calibration
         x = measurement
@@ -1032,12 +1032,11 @@ function decode_syncsymbol(encoded::AbstractMatrix, symbol::AbstractVector, t_de
     Δm = view(locat,2,:) - view(locat,1,:)
     Δt = length(symbol) + round(Int, t_decay * fs) + round(Int, t_signal * fs)
     Δr = view(locat,1,:) .- minimum(view(locat,1,:))
-    # @info "decode_syncsymbol" Δm Δt Δr
+    printstyled("libaudio.decode_syncsymbol: Δm Δt Δr $(Δm) $(Δt) $(Δr)\n", color=:light_blue) 
 
     #lb = lbs[1] + size(symbol,1) + round(Int, t_decay * fs)
     #rb = lbs[2] - 1
-    ss = locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs)
-    return (ss, Δm, Δt, Δr)
+    locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs)
 end
 
 
@@ -1327,8 +1326,9 @@ function resample_vhq(input::AbstractVector{T}, fi, fo) where T<:Real
                     (Float64, Float64, UInt32, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}), 
                     Float64.(fi), Float64.(fo), 1, block, length(block), C_NULL, resampled, length(resampled), resampled_n_return, C_NULL, C_NULL, C_NULL)
     @assert Int(soxerr) == 0
-    # @info "libsox resample theory/actual samples" n Int(resampled_n_return[1])
-    @assert n ≥ Int(resampled_n_return[1])
+    na = Int(resampled_n_return[1])
+    printstyled("libaudio.resample_vhq: theoretical/actual samples $(n) $(na)\n", color=:light_blue) 
+    @assert n ≥ na
     return convert(AbstractVector{T}, resampled)
 end
 

@@ -323,8 +323,7 @@ function symbol_test()
     se = Libaudio.encode_syncsymbol(0.5, s, 0.1, x, fs, 2, -6)
     Libaudio.decode_syncsymbol(se[:,2:2], s, 0.1, size(x,1)/fs, fs)
 end
-let (loc, dm, dt, dr) = symbol_test()
-    # @info "decode_syncsymbol" loc dm dt dr
+let loc = symbol_test()
     @test loc[1] == convert(Int, 0.5 * 48000 + length(Libaudio.symbol_expsinesweep(800, 2000, 1, 48000)) + 0.1 * 48000) + 1
     @info "==== (16) symbol_test ===="
 end

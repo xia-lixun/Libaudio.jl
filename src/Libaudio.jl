@@ -1,6 +1,6 @@
 module Libaudio
 
-
+using Plots
 using Polynomials
 using LinearAlgebra
 using Statistics
@@ -20,6 +20,7 @@ function __init__()
     mkpath("C:\\Drivers\\Julia\\")
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libwav.dll"), "C:\\Drivers\\Julia\\libwav.dll", force=true)
+    # plotly()
 end
 
 
@@ -171,6 +172,7 @@ cross correlation with normalization, unlike xcorr which will zero-pad both argu
 to the same length, this function results in strictly length(s) + length(x) - 1
 """
 function xcorrcoeff(s::AbstractVector, x::AbstractVector)
+    # BLAS.set_num_threads(Sys.CPU_THREADS)
     ns = length(s)
     nx = length(x)
     n = max(nx, ns)
@@ -178,14 +180,14 @@ function xcorrcoeff(s::AbstractVector, x::AbstractVector)
     xe = [zeros(eltype(x), nsm1); x; zeros(eltype(x), nsm1)]
     y = zeros(promote_type(eltype(x), eltype(s)), nsm1+nx)
 
-    kernel = sum(s.^2)
-    k = 1
-    for i = nsm1+nx:-1:1
+    d = eps(eltype(s))
+    kernel = dot(s,s)
+    m = nsm1+nx+1
+    for i = m-1:-1:1
         p = view(xe,i:i+nsm1)
-        @inbounds y[k] = dot(p, s) / (sqrt(kernel * sum(p.^2)) + eps(eltype(s)))
-        k += 1
+        @fastmath @inbounds y[m-i] = dot(p,s) / (sqrt(kernel * dot(p,p)) + d)
     end
-    y
+    return y
 end
 
 
@@ -197,12 +199,10 @@ function xcorrcoeff_threaded(s::AbstractVector{T}, x::AbstractVector{T}) where T
     nsm1 = ns-1
     xe = [zeros(T, nsm1); x; zeros(T, nsm1)]
     y = zeros(T, nsm1+nx)
-
-    kernel = sum(s.^2)
+    kernel = dot(s,s)
     epsilon = eps(eltype(s))
 
     Threads.@threads for i = nsm1+nx:-1:1
-        # p = view(xe,i:i+nsm1)
         dp = zero(T)
         @fastmath @simd for k = 1:ns
             @inbounds dp += xe[i-1+k] * s[k]
@@ -211,7 +211,6 @@ function xcorrcoeff_threaded(s::AbstractVector{T}, x::AbstractVector{T}) where T
         @fastmath @simd for k = i:i+nsm1
             @inbounds sp += xe[k]^2
         end
-        # y[nsx-i] = dot(p,s) / (sqrt(kernel * sum(p.^2)) + epsilon)
         y[nsx-i] = dp/(sqrt(sp*kernel)+epsilon)
     end
     y
@@ -246,7 +245,13 @@ end
 """
     filt(b, a, x)
 
-transfer function filter in z-domain
+transfer function filter in z-domain, x can be vector or matrix but the
+output will always in matrix form. In the future our strategy on computational
+routines would be:
+- for parameter genrations -> BigFloat or Float64
+- for pure processings -> either Float64 or Float32
+- dont consider mixing of Float64 and Float32 as it will complicate the codes
+  if you prefer accuracy use 64 bit float, otherwise use 32 bit.
 
 # Details
 
@@ -258,8 +263,10 @@ transfer function filter in z-domain
              - a(2)y(n-1) - a(3)y(n-2) - ... - a(N+1)y(n-N)
 
 """
-function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat)
-    if a[1] != 1.0
+function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat{T}) where T<:LinearAlgebra.BlasFloat
+    # b = convert(AbstractVector{T}, b)
+    # a = convert(AbstractVector{T}, a)
+    if a[1] != one(eltype(a))
         b = b / a[1]
         a = a / a[1]
     end
@@ -272,33 +279,26 @@ function filt(b::AbstractVector, a::AbstractVector, x::AbstractVecOrMat)
     as = a[2:end]
     nx2 = size(x,2)
 
-    y = zeros(size(x))
-    x = [zeros(m, nx2); x]
-    s = zeros(n, nx2)
+    y = zeros(T, size(x))
+    x = [zeros(T, m, nx2); x]
+    s = zeros(T, n, nx2)
     nx1 = size(x,1)
 
-    if n != 0 #ARMA
-        Threads.@threads for j = 1:nx2
+    # auto-regression moving average
+    if n != 0
+        for j = 1:nx2
             @inbounds for i = m+1:nx1
                 y[i-m,j] = dot(br, view(x,i-m:i,j)) - dot(as, view(s,:,j))
-                # ---------------------------
-                # to move elements of array note the direction!
-                @simd for k = n:-1:2
+                for k = n:-1:2
                     s[k,j] = s[k-1,j]
                 end
-                # s[2:end,j] = s[1:end-1,j]
-                # ---------------------------
                 s[1,j] = y[i-m,j]
             end
         end
-    else #MA
-        Threads.@threads for j = 1:nx2
+    else
+        for j = 1:nx2
             for i = m+1:nx1
                 @inbounds y[i-m,j] = dot(br, view(x, i-m:i, j))
-                # for k = 1:nb
-                #     y[i-m,j] += br[k] * x[i-m-1+k,j]
-                # end
-                # [observation]: dot() is a better implement than loop
             end
         end
     end
@@ -473,7 +473,7 @@ end
 
 
 
-binarysign(x) = x > 0 ? 1.0 : -1.0
+binarysign(x) = x > 0 ? 1.f0 : -1.f0
 zerocrossingrate(v) = floor.((abs.(diff(binarysign.(v)))) ./ 2)
 ppnorm(v) = (v - minimum(v)) ./ (maximum(v) - minimum(v))
 stand(v) = (v - mean(v)) ./ std(v)
@@ -557,8 +557,8 @@ end
     % plot(x,a*x.^2+b*x, '--');
 """
 function parabolicfit2(y::AbstractVector)
-    a = 0.5y[3] - y[2] + 0.5y[1]
-    b = -0.5y[3] + 2y[2] - 1.5y[1]
+    a = y[3]/2 - y[2] + y[1]/2
+    b = -y[3]/2 + 2y[2] - 3y[1]/2
     (a,b)
 end
 
@@ -575,23 +575,23 @@ extract symbols based on correlation coefficients.
 - 'rep::Integer': number of symbols can be found within the signal
 - 'dither': dB value for dithering, default to -160dB
 """
-function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=true, xcorrcoeff=false) where T<:Real
+function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=false, normcoeff=false, xaxis=1600, yaxis=400) where T<:LinearAlgebra.BlasFloat
     x = x + (rand(T,size(x)) .- T(0.5)) * T(10^(dither/20))
     n = length(x) 
     m = length(s)
     y = zeros(T, rep * m)
     peaks = zeros(Int64, rep)
     lbs = zeros(Int64, rep)
-    peakspf2 = zeros(rep)
+    peakspf2 = zeros(T, rep)
 
     # do the cross correlation and sort the maxima
-    if xcorrcoeff
-        ℝ = xcorrcoeff_threaded(s, x)
+    if normcoeff
+        ℝ = xcorrcoeff(s, x)
     else
         ℝ = xcorr(s, x)
     end
     verbose && (@info "peak value" maximum(ℝ))
-    # vision && (box = plot(x))
+    vision && (box = plot(x, size=(xaxis,yaxis)))
     𝓡 = sort(ℝ[localmaxima(ℝ)], rev=true)
     isempty(𝓡) && (return (y, diff(peaks)))
 
@@ -609,15 +609,15 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)
     verbose && (@info "peak anchor-[$(ip)] in correlation" ploc peakspf2[ip])
 
-    # if vision
-    #     box_hi = maximum(x[lb:rb])
-    #     box_lo = minimum(x[lb:rb])
+    if vision
+        box_hi = maximum(x[lb:rb])
+        box_lo = minimum(x[lb:rb])
         
-    #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-    #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-    #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-    #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-    # end
+        plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
+        plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
+        plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
+        plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
+    end
 
     if rep > 1
         for i = 2:length(𝓡)
@@ -634,14 +634,14 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
                 rb = min(lb + m - 1, length(x))
                 lbs[ip] = lb
                 
-                # if vision
-                #     box_hi = maximum(x[lb:rb])
-                #     box_lo = minimum(x[lb:rb])    
-                #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-                #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-                #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-                #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-                # end
+                if vision
+                    box_hi = maximum(x[lb:rb])
+                    box_lo = minimum(x[lb:rb])    
+                    plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
+                    plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
+                    plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
+                    plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
+                end
 
                 y[1+(ip-1)*m : 1+(ip-1)*m+(rb-lb)] = x[lb:rb]
                 1+rb-lb < m && (@warn "incomplete segment extracted!")
@@ -655,7 +655,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
         lbs = sort(lbs)
         peakspf2 = sort(peakspf2)
     end
-    # vision && display(box)
+    vision && display(box)
     return (lbs, peaks, peakspf2, y)
 end
 
@@ -677,6 +677,7 @@ end
     - 'fh = 12000': higher frequency bound
     - 'calibratorreading = 114.0': calibrator reading for reference spl
     - 'verbose = true': default reveal everything
+    - 'lowlevel = false': if signal to be extracted is low in level please enable this switch at the cost of longer execution time
 """
 function db20upa(
     calibration::AbstractVector{T}, 
@@ -689,7 +690,8 @@ function db20upa(
     fl = 100, 
     fh = 12000, 
     calibratorreading = 114.0; 
-    verbose = true) where T<:Real
+    verbose = false,
+    normcoeff = false) where T<:LinearAlgebra.BlasFloat
 
 
     # calculate dbspl of all channels of x
@@ -711,7 +713,7 @@ function db20upa(
     end
 
     for c = 1:channels
-        lbs, pk, pkpf, xp = extractsymbol(x[:,c], s, repeat)
+        lbs, pk, pkpf, xp = extractsymbol(view(x,:,c), s, repeat, normcoeff=normcoeff)
         verbose && (@info "lb location in time and sample:" lbs./p.rate lbs)
         xps,xpn = powerspectrum(xp, p, false, false, hann)
         xpsu = mean(xps, dims=2)
@@ -743,6 +745,7 @@ wrapper for db20upa: locate the calibration wav file and do proper weighting of 
     - 'fh = 12000': higher frequency bound
     - 'calibratorreading = 114.0': calibrator reading for reference spl
     - 'weighting="none"': "A" or "a" for a-wighting
+    - 'lowsignal=false': if enabled the function will detect signals with low levels with longer execution time
 
 # Details
     to measure single simple symbol: symbol_start = 0.0, symbol_stop = 0.0 then measure multiple simple symbols: 
@@ -763,20 +766,22 @@ function spl(
     fl = 100, 
     fh = 12000, 
     calibratorreading = 114.0;
-    weighting = "none")
+    weighting = "none",
+    verbose = false,
+    normcoeff = false)
 
     if lowercase(weighting) == "a"
-        b,a = weighting_a(p.rate)
+        b, a = weighting_a(p.rate)
         r = filt(b, a, calibration)
         x = filt(b, a, measurement)
         s = filt(b, a, symbol)
-        @info "spl: apply a-wighting"
+        verbose && (@info "spl: apply a-wighting")
     else
         r = calibration
         x = measurement
         s = symbol
     end
-    db20upa(r, x, s, repeat, p, symbollow, symbolhigh, fl, fh, calibratorreading)    
+    db20upa(r, x, s, repeat, p, symbollow, symbolhigh, fl, fh, calibratorreading, verbose=verbose, normcoeff=normcoeff)    
 end
 
 
@@ -958,47 +963,53 @@ end
 
 
 
-# signal is either ::Vector{Float64} or ::Matrix{Float64}
-# the result will be dimensionally raised up to matrix
 """
     encode_syncsymbol(t_context, symbol, t_decay, signal, fs, channel=1, symbolgain=-6)
 
-encode signal with syncsymbol.
+encode signal with syncsymbol. signal is either ::Vector or ::Matrix, 
+the result will behave like filt():
+
+1) always be dimensionally raised up to matrix
+2) the result will have the same element type with 'signal'.
+
 
 # Details
-    % this function encode the content of the stimulus for playback if sync
-    % (guard) symbols are needed for asynchronous operations.
-    %
-    % +----------+------+-------+--------------------+------+-------+
-    % | t_contxt | sync | decay |       signal       | sync | decay |
-    % +----------+------+-------+--------------------+------+-------+
-    % t_switch is time for DUT context switch
-    % decay is inserted to separate dynamics of sync and the test signal
-    %
-    % for example:
-    %     signal = [randn(8192,1); zeros(65536,1)];
-    %     g = sync_symbol(1000, 1250, 1, 48000) * (10^(-3/20));
-    %     y = add_sync_symbol(signal, 3, g, 2, 48000);
-    %
-    % we now have a stimulus of pre-silence of 3 seconds, guard chirp of
-    % length 1 second, chirp decaying marging of 2 seconds, a measurement
-    % of random noise.
+     this function encode the content of the stimulus for playback if sync
+     (guard) symbols are needed for asynchronous operations.
+    
+     +----------+------+-------+--------------------+------+-------+
+     | t_contxt | sync | decay |       signal       | sync | decay |
+     +----------+------+-------+--------------------+------+-------+
+     t_context is time for DUT context switch
+     decay is inserted to separate dynamics of sync and the test signal
+    
+    for example:
+        signal = [randn(Float32,100); zeros(Float32,1000)]
+        y = encode_syncsymbol(3, symbol_expsinesweep(800,2000,1,48000), 2, signal, 48000)
+    
+         
+        signal = [randn(Float32,100,4); zeros(Float32,1000,4)]
+        y = encode_syncsymbol(3, symbol_expsinesweep(800,2000,1,48000), 2, signal, 48000, 3, -12)
 """
 function encode_syncsymbol(t_context, symbol::AbstractVector, t_decay, signal::Union{AbstractVector, AbstractMatrix}, fs, channel=1, symbolgain=-6)
     s = 10^(symbolgain/20) * symbol
     n = size(signal,2)
     
-    switch = zeros(round(Int, t_context * fs), n)
-    sym = zeros(length(s), n)
+    T = eltype(signal)
+    switch = zeros(T, round(Int, t_context * fs), n)
+    sym = zeros(T, length(s), n)
     sym[:, channel] = s
-    decay = zeros(round(Int, t_decay * fs), n)
-    [switch; sym; decay; signal; sym; decay]
+    decay = zeros(T, round(Int, t_decay * fs), n)
+    return [switch; sym; decay; signal; sym; decay]
 end
 
 
 
 """
-return the vector of index indicating the start of the signal in each channel of 'encoded'
+return the vector of start sample of the signal in each channel of 'encoded'
++ measured delta length
++ theoretical delta length
++ measured delta relative
 
 # Arguments
 - 'encoded::AbstractMatrix': encoded signal
@@ -1008,21 +1019,25 @@ return the vector of index indicating the start of the signal in each channel of
 - 'fs': sample rate
 """
 function decode_syncsymbol(encoded::AbstractMatrix, symbol::AbstractVector, t_decay, t_signal, fs)
+
+    T = eltype(encoded)
+    sym = convert(AbstractVector{T}, symbol)
     n = size(encoded,2)
     locat = zeros(Int,2,n)
     for i = 1:n
-        lbs, pks, pks2, mgd = extractsymbol(view(encoded,:,i), symbol, 2)
+        lbs, pks, pks2, mgd = extractsymbol(view(encoded,:,i), sym, 2)
         locat[:,i] = lbs
     end
 
-    delta_measure = view(locat,2,:) - view(locat,1,:)
-    delta_theory = length(symbol) + round(Int, t_decay * fs) + round(Int, t_signal * fs)
-    delta_measure_relative = view(locat,1,:) .- minimum(view(locat,1,:))
-    @info "decode_syncsymbol delta" delta_measure delta_theory delta_measure_relative
+    Δm = view(locat,2,:) - view(locat,1,:)
+    Δt = length(symbol) + round(Int, t_decay * fs) + round(Int, t_signal * fs)
+    Δr = view(locat,1,:) .- minimum(view(locat,1,:))
+    # @info "decode_syncsymbol" Δm Δt Δr
 
     #lb = lbs[1] + size(symbol,1) + round(Int, t_decay * fs)
     #rb = lbs[2] - 1
-    locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs)
+    ss = locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs)
+    return (ss, Δm, Δt, Δr)
 end
 
 
@@ -1312,7 +1327,8 @@ function resample_vhq(input::AbstractVector{T}, fi, fo) where T<:Real
                     (Float64, Float64, UInt32, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Float32}, UInt64, Ptr{UInt64}, Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}), 
                     Float64.(fi), Float64.(fo), 1, block, length(block), C_NULL, resampled, length(resampled), resampled_n_return, C_NULL, C_NULL, C_NULL)
     @assert Int(soxerr) == 0
-    @info "libsox resample theory/actual samples" n Int(resampled_n_return[1])
+    # @info "libsox resample theory/actual samples" n Int(resampled_n_return[1])
+    @assert n ≥ Int(resampled_n_return[1])
     return convert(AbstractVector{T}, resampled)
 end
 

@@ -2,6 +2,20 @@ import Libaudio
 using Test
 
 
+function libwav_test()
+    filename = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
+    r,fs = Libaudio.wavread(filename)
+    m = Libaudio.wavinfo(filename)
+    x = zeros(Float32, m[1] * m[2])
+    Libaudio.wavread!(filename, x)
+    y = permutedims(reshape(x, m[2], m[1]))
+    r,y
+end
+let (r,y) = libwav_test()
+    @test isapprox(r, y, atol=1e-7)
+    @info "==== (0) libwav_test ===="
+end
+
 
 function wavio_test()
     path = Libaudio.modulepath(Libaudio)
@@ -19,6 +33,7 @@ let (x, x16, x24, x32) = wavio_test()
     @test isapprox(x16, x, atol=1e-2)
     @test isapprox(x24, x, atol=1e-4)
     @test isapprox(x32, x, atol=1e-6)
+    @info "==== (1) wavio_test ===="
 end
 
 
@@ -38,6 +53,7 @@ let (x,xd,y,yf1,yf2) = wavalid_test()
     @test y == yf1
     @test y == yf2
     @test isapprox(x, xd, atol=1e-5)
+    @info "==== (2) wavalid_test ===="
 end
 
 
@@ -55,11 +71,12 @@ end
 let (b, a) = Libaudio.weighting_a(48000), truth = weighting_a_truth_48000()
     @test isapprox(b, truth[:,1], atol = 1e-14)
     @test isapprox(a, truth[:,2], atol = 1e-14)
+    @info "==== (3.1) A weighting ===="
 end
-
 let (b, a) = Libaudio.weighting_a(16000), truth = weighting_a_truth_16000()
     @test isapprox(b, truth[:,1], atol = 1e-14)
     @test isapprox(a, truth[:,2], atol = 1e-14)
+    @info "==== (3.2) A weighting ===="
 end
 
 
@@ -69,6 +86,7 @@ function conv_truth()
 end
 let y = Libaudio.conv(collect(1.0:1.0:4.0), collect(4.0:-1.0:-4.0)), truth = conv_truth()
     @test isapprox(y, truth, atol = 1e-14)
+    @info "==== (4) conv ===="
 end
 
 
@@ -78,6 +96,7 @@ function xcorr_truth()
 end
 let y = Libaudio.xcorr(collect(1.0:1.0:4.0), collect(4.0:-1.0:-4.0)), truth = xcorr_truth()
     @test isapprox(y, truth, atol = 1e-14)
+    @info "==== (5) xcorr ===="
 end
 
 
@@ -88,6 +107,7 @@ function xcorrcoeff_test()
 end
 let (x,y) = xcorrcoeff_test()
     @test x == y
+    @info "==== (6) xcorrcoeff_test ===="
 end
 
 
@@ -95,9 +115,10 @@ function filt_truth()
     y = [3.150000000000000e+01, -1.675000000000000e+01, 5.125000000000000e+00, 5.031250000000000e+01, -4.271875000000000e+01, 3.453125000000000e+00, 1.377578125000000e+02, -1.690429687500000e+02]
     [y y y y]
 end
-let b = [7,6,5], a = [2,3,4], x = [9,1,5,2,7,4,8,3], truth = filt_truth()
+let b = [7,6,5], a = [2,3,4], x = Float32[9,1,5,2,7,4,8,3], truth = filt_truth()
     y = Libaudio.filt(b,a,[x x x x])
     @test isapprox(y, truth, atol = 1e-17)
+    @info "==== (7) filt ===="
 end
 
 
@@ -118,15 +139,19 @@ end
 
 let w = Libaudio.hamming(8), truth = hamming_truth_symmetric()
     @test isapprox(w, truth, atol = 1e-15)
+    @info "==== (8.1) hamming symmetric ===="
 end
 let w = Libaudio.hamming(8, "periodic"), truth = hamming_truth_periodic()
     @test isapprox(w, truth, atol = 1e-15)
+    @info "==== (8.2) hamming periodic ===="
 end
 let w = Libaudio.hann(8), truth = hann_truth_symmetric()
     @test isapprox(w, truth, atol = 1e-15)
+    @info "==== (8.3) hann symmetric ===="
 end
 let w = Libaudio.hann(8, "periodic"), truth = hann_truth_periodic()
     @test isapprox(w, truth, atol = 1e-15)
+    @info "==== (8.4) hann periodic ===="
 end
 
 
@@ -144,6 +169,7 @@ let (ff, tf, ft, tt) = zeropend_truth()
     @test tf == Libaudio.zeropend(collect(1.:9.), Libaudio.WindowFrame(4,2), true, false)
     @test ft == Libaudio.zeropend(collect(1.f0:9.f0), Libaudio.WindowFrame(4,2), false, true)
     @test tt == Libaudio.zeropend(ComplexF64.(1:9), Libaudio.WindowFrame(4,2), true, true)
+    @info "==== (9) zeropend ===="
 end
 
 
@@ -160,6 +186,7 @@ let (ff, tf, ft, tt) = buffer_truth()
     @test tf == Libaudio.buffer(collect(1.:9.), Libaudio.WindowFrame(4,2), true, false)
     @test ft == Libaudio.buffer(collect(1:9), Libaudio.WindowFrame(4,2), false, true)
     @test tt == Libaudio.buffer(collect(1.f0:9.f0), Libaudio.WindowFrame(4,2), true, true)
+    @info "==== (10) buffer ===="
 end
 
 
@@ -183,10 +210,10 @@ function spectrogram_truth()
     ]
 end
 let y = spectrogram_truth()
-    @info "spectrogram test"
     x = Libaudio.spectrogram(collect(1.:100.), Libaudio.WindowFrame(16,12), true, true)
     @test isapprox(x[1], y, atol=1e-13)
     # note that we can: isapprox([1.0, 2.0], [1.0+eps(Float32), 2.0+eps(Float32)], atol = 1e-6) -> true
+    @info "==== (11) spectrogram ===="
 end
 
 
@@ -206,26 +233,30 @@ function powerspectrum_truth()
     ]
 end
 let y = powerspectrum_truth()
-    @info "powerspectrum test"
     x = Libaudio.powerspectrum(collect(1.0:100.0), Libaudio.WindowFrame(16,12), true, true)
     @test isapprox(x[1], y, atol=1e-11)
+    @info "==== (12) powerspectrum ===="
 end
 
 
 
 
-
-function extractsymbol_test()
-    a = randn(8192)
-    b = randn(8192)
-    c = randn(8192)
-    t = randn(512)
-    lbs, pk, pkf, m = Libaudio.extractsymbol([zeros(1); 0.05*t; a; 0.001*t; b; 0.1*t; c; 0.01*t], t, 4, verbose=true, xcorrcoeff=true)
-    lbsx, pkx, pkfx, mx = Libaudio.extractsymbol([zeros(1); t; a; t; b; t; c; t], t, 4, verbose=true)
-    @info "extract symbol test" lbs pk pkf
+"""
+in this extreme case T=Float32 is insufficient in accuracy but I doubt for normal audio signals 
+single precision would be enough?
+"""
+function extractsymbol_test(T)
+    a = randn(T,8192)
+    b = randn(T,8192)
+    c = randn(T,8192)
+    t = randn(T,512)
+    lbs, pk, pkf, m = Libaudio.extractsymbol([zeros(T,1); T(0.05)*t; a; T(0.001)*t; b; T(0.1)*t; c; T(0.01)*t], t, 4, verbose=false, normcoeff=true)
+    lbsx, pkx, pkfx, mx = Libaudio.extractsymbol([zeros(T,1); t; a; t; b; t; c; t], t, 4, verbose=false)
+    # @info "extract symbol test: xcorrcoeff enabled" lbs pk pkf
+    # @info "extract symbol test: xcorrcoeff disabled" lbsx pkx pkfx
     (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx)
 end
-let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test()
+let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test(Float64)
     @test lbs[1] == 1 + 1
     @test lbs[2] == lbs[1]-1+(512+8192)+1
     @test lbs[3] == lbs[2]-1+(512+8192)+1
@@ -234,6 +265,7 @@ let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test()
     @test lbsx[2] == lbsx[1]-1+(512+8192)+1
     @test lbsx[3] == lbsx[2]-1+(512+8192)+1
     @test lbsx[4] == lbsx[3]-1+(512+8192)+1
+    @info "==== (13) extractsymbol_test ===="
 end
 
 
@@ -242,25 +274,24 @@ end
 
 
 function spl_test()
-    calib250, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\2018-06-22T15-37-20-913+42AA_114.0_105.4_26XX_12AA_0dB_UFX.wav"), "double")
-    calib1000, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\2018-06-22T15-38-53-76+42AB_114.0__26XX_12AA_0dB_UFX.wav"), "double")
-    sp, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\acqua_ieee_male_250ms_10450ms.wav"), "double")
+    calib250, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\2018-06-22T15-37-20-913+42AA_114.0_105.4_26XX_12AA_0dB_UFX.wav"))
+    calib1000, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\2018-06-22T15-38-53-76+42AB_114.0__26XX_12AA_0dB_UFX.wav"))
+    sp, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\acqua_ieee_male_250ms_10450ms.wav"))
 
     aanw = Libaudio.spl(calib250[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
     abnw = Libaudio.spl(calib1000[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
-
     aaaw = Libaudio.spl(calib250[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A")
-    abaw = Libaudio.spl(calib1000[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A")    
-
-    (aanw, abnw, aaaw, abaw)
+    abaw = Libaudio.spl(calib1000[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A") 
+    return (aanw, abnw, aaaw, abaw)
 end
 let (aanw, abnw, aaaw, abaw) = spl_test()
-    @info "spl test results" aanw abnw aaaw abaw
+    # @info "spl test results" aanw abnw aaaw abaw
     @test abs(aanw[1] - abnw[1]) < 0.5
     @test isapprox(aanw[1], 128.166, atol=1e-3)
     @test isapprox(abnw[1], 127.993, atol=1e-3)
     @test isapprox(aaaw[1], 125.182, atol=1e-3)
     @test isapprox(abaw[1], 116.33, atol=1e-3)
+    @info "==== (14) spl_test ===="
 end
 
 
@@ -280,20 +311,22 @@ end
 let (u,v,p,q) = impulse_test()
     @test p-q == 17
     @test isapprox(u, v, atol=1e-15)
+    @info "==== (15) impulse_test ===="
 end
 
 
 
 function symbol_test()
     fs = 48000
-    x = randn(8192,4)
+    x = randn(8192, 4)
     s = Libaudio.symbol_expsinesweep(800, 2000, 1, fs)
     se = Libaudio.encode_syncsymbol(0.5, s, 0.1, x, fs, 2, -6)
     Libaudio.decode_syncsymbol(se[:,2:2], s, 0.1, size(x,1)/fs, fs)
 end
-let location = symbol_test()
-    @info "starting location" location
-    @test location[1] == convert(Int, 0.5 * 48000 + length(Libaudio.symbol_expsinesweep(800, 2000, 1, 48000)) + 0.1 * 48000) + 1
+let (loc, dm, dt, dr) = symbol_test()
+    # @info "decode_syncsymbol" loc dm dt dr
+    @test loc[1] == convert(Int, 0.5 * 48000 + length(Libaudio.symbol_expsinesweep(800, 2000, 1, 48000)) + 0.1 * 48000) + 1
+    @info "==== (16) symbol_test ===="
 end
 
 
@@ -304,7 +337,7 @@ function list_test()
     shallowfiles = Libaudio.list(mp, ".jl")
     deepfiles = Libaudio.list(mp, ".jl", recursive=true)
 
-    @info shallowfolders deepfolders shallowfiles deepfiles
+    # @info shallowfolders deepfolders shallowfiles deepfiles
     (shallowfolders, deepfolders, shallowfiles, deepfiles)
 end
 let (shallowfolders, deepfolders, shallowfiles, deepfiles) = list_test()
@@ -312,6 +345,7 @@ let (shallowfolders, deepfolders, shallowfiles, deepfiles) = list_test()
     @test length(deepfolders) ≥ 5
     @test length(shallowfiles) == 0
     @test length(deepfiles) == 2
+    @info "==== (17) list_test ===="
 end
 
 
@@ -327,6 +361,7 @@ let (before, after) = checksum_test()
     @test before == false
     @test after == true
     rm(joinpath(Libaudio.modulepath(Libaudio),"jl.sha"))
+    @info "==== (18) checksum_test ===="
 end
 
 
@@ -335,11 +370,12 @@ end
 function sigdistratio_test()
     x = randn(8192)
     sdr = Libaudio.sigdistratio([zeros(1024); x; zeros(1024)], view(x,:))
-    @info "signal to distortion ratio (dB)" sdr
+    # @info "signal to distortion ratio (dB)" sdr
     return sdr
 end
 let sdr = sigdistratio_test()
     @test sdr > 160
+    @info "==== (19) sigdistratio_test ===="
 end
 
 
@@ -353,11 +389,12 @@ function resample_test()
     # set_zero_subnormals(true)
     sdr = Libaudio.sigdistratio([zeros(1024);view(z,:,1);zeros(1024)], view(x,:,1))
     # set_zero_subnormals(false)
-    @info "resample sdr value" sdr
+    # @info "resample sdr value" sdr
     return sdr
 end
 let sdr = resample_test()
-    @test sdr > 0
+    @test sdr > 26.0
+    @info "==== (20) resample_test ===="
 end
 
 
@@ -373,9 +410,10 @@ function idealmask_test()
     (sdr1, sdr2)
 end
 let (sdr1, sdr2) = idealmask_test()
-    @info "ideal mask test" sdr1 sdr2
-    @test sdr1 > 10
-    @test sdr2 > 10
+    # @info "ideal mask test" sdr1 sdr2
+    @test sdr1 > 13
+    @test sdr2 > 11
+    @info "==== (21) idealmask_test ===="
 end
 
 

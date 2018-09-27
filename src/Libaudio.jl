@@ -1,6 +1,6 @@
 module Libaudio
 
-using Plots
+# using Plots
 using Polynomials
 using LinearAlgebra
 using Statistics
@@ -20,7 +20,7 @@ function __init__()
     mkpath("C:\\Drivers\\Julia\\")
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
     cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libwav.dll"), "C:\\Drivers\\Julia\\libwav.dll", force=true)
-    plotly()
+    # plotly()
 end
 
 
@@ -565,7 +565,7 @@ end
 
 
 """
-    extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=false)
+    extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=false, verbose=false)
 
 extract symbols based on correlation coefficients.
 
@@ -575,7 +575,7 @@ extract symbols based on correlation coefficients.
 - 'rep::Integer': number of symbols can be found within the signal
 - 'dither': dB value for dithering, default to -160dB
 """
-function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=true, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
+function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=false, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
     x = x + (rand(T,size(x)) .- T(0.5)) * T(10^(dither/20))
     n = length(x) 
     m = length(s)
@@ -591,7 +591,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
         ℝ = xcorr(s, x)
     end
     verbose && printstyled("libaudio.extractsymbol: peak value $(maximum(ℝ))\n", color=:light_blue)
-    vision && (box = plot(x, size=(xaxis,yaxis)))
+    # vision && (box = plot(x, size=(xaxis,yaxis)))
     𝓡 = sort(ℝ[localmaxima(ℝ)], rev=true)
     isempty(𝓡) && (return (y, diff(peaks)))
 
@@ -609,15 +609,14 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)
     verbose && printstyled("libaudio.extractsymbol: peak $(ip) location $(ploc) $(peakspf2[ip])\n", color=:light_blue) 
 
-    if vision
-        box_hi = maximum(x[lb:rb])
-        box_lo = minimum(x[lb:rb])
-        
-        plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-        plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-        plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-        plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-    end
+    # if vision
+    #     box_hi = maximum(x[lb:rb])
+    #     box_lo = minimum(x[lb:rb])        
+    #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
+    #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
+    #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
+    #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
+    # end
 
     if rep > 1
         for i = 2:length(𝓡)
@@ -634,14 +633,14 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
                 rb = min(lb + m - 1, length(x))
                 lbs[ip] = lb
                 
-                if vision
-                    box_hi = maximum(x[lb:rb])
-                    box_lo = minimum(x[lb:rb])    
-                    plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-                    plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-                    plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-                    plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-                end
+                # if vision
+                #     box_hi = maximum(x[lb:rb])
+                #     box_lo = minimum(x[lb:rb])    
+                #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
+                #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
+                #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
+                #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
+                # end
 
                 y[1+(ip-1)*m : 1+(ip-1)*m+(rb-lb)] = x[lb:rb]
                 1+rb-lb < m && printstyled("libaudio.extractsymbol: incomplete segment extracted!\n", color=:light_red)
@@ -655,7 +654,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
         lbs = sort(lbs)
         peakspf2 = sort(peakspf2)
     end
-    vision && display(box)
+    # vision && display(box)
     return (lbs, peaks, peakspf2, y)
 end
 

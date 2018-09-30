@@ -5,14 +5,24 @@ using Test
 function libwav_test()
     filename = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
     r,fs = Libaudio.wavread(filename)
-    m = Libaudio.wavinfo(filename)
-    x = zeros(Float32, m[1] * m[2])
-    Libaudio.wavread!(filename, x)
-    y = permutedims(reshape(x, m[2], m[1]))
-    r,y
+    # m = Libaudio.wavinfo(filename)
+    # x = zeros(Float32, m[1] * m[2])
+    # Libaudio.wavread!(filename, x)
+    # y = permutedims(reshape(x, m[2], m[1]))
+    ys,sr,bps = Libaudio.wavread_(filename)
+    yd,sr,bps = Libaudio.wavread_(filename, Float64)
+
+    Libaudio.wavwrite_(filename[1:end-4] * "_s32.wav", ys, Int(fs), 32)
+    Libaudio.wavwrite_(filename[1:end-4] * "_s24.wav", ys, Int(fs), 24)
+    Libaudio.wavwrite_(filename[1:end-4] * "_s16.wav", ys, Int(fs), 16)
+    Libaudio.wavwrite_(filename[1:end-4] * "_d32.wav", yd, Int(fs), 32)
+    Libaudio.wavwrite_(filename[1:end-4] * "_d24.wav", yd, Int(fs), 24)
+    Libaudio.wavwrite_(filename[1:end-4] * "_d16.wav", yd, Int(fs), 16)
+    (r,ys,yd)
 end
-let (r,y) = libwav_test()
-    @test isapprox(r, y, atol=1e-7)
+let (r,ys,yd) = libwav_test()
+    @test isapprox(r, ys, atol=1e-7)
+    @test isapprox(r, yd, atol=1e-7)
     @info "==== (0) libwav_test ===="
 end
 

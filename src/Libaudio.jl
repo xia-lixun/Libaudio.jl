@@ -1671,19 +1671,45 @@ end
 
 function wavinfo(filename)
     m = zeros(Int, 4) # m[1]-samples  m[2]-channels  m[3]-sample rate  m[4]-bits per sample
-    ccall((:wavinfo, "C:\\Drivers\\Julia\\libwav"), Int32, (Cstring, Ptr{Int}), filename, m)
+    ccall((:wavinfo, "C:\\Drivers\\Julia\\libwav"), Int64, (Cstring, Ptr{Int}), filename, m)
     m    
 end
 
-# m = wavinfo("foo.wav")
-# x = zeros(Float32, m[1] * m[2])
-function wavread!(filename, x)
-    ccall((:wavread, "C:\\Drivers\\Julia\\libwav"), Int32, (Cstring,Ptr{Float32}), filename, x)
+
+function wavread!(filename, x::Vector{Float32})
+    ccall((:wavread, "C:\\Drivers\\Julia\\libwav"), Int64, (Cstring,Ptr{Float32}), filename, x)
     return nothing
 end
 
+function wavwrite!(filename, x::Vector{Float32}, n::Int64, ch::Int64, fs::Int64, bps::Int64, t0::Float64, t1::Float64)
+    ccall((:wavwrite, "C:\\Drivers\\Julia\\libwav"), Int64, (Cstring,Ptr{Float32},Int64,Int64,Int64,Int64,Float64,Float64), filename, x, n, ch, fs, bps, t0, t1)
+end
 
 
+"""
+    wavread_(filename, T=Float32)
+
+load wav files with libwav(C++ backend) into float32 matrix
+"""
+function wavread_(filename, T=Float32)
+    m = wavinfo(filename)
+    x = zeros(Float32, m[1] * m[2])    
+    wavread!(filename, x)
+    y = convert(Matrix{T}, permutedims(reshape(x, m[2], m[1])))
+    return (y, m[3], m[4])
+end
+
+
+"""
+    wavwrite_(filename, x, fs, bps, t0, t1)
+
+return number of bytes written to the file
+"""
+function wavwrite_(filename, x::Matrix, fs::Int64, bps::Int64=32, t0=0.0, t1=0.0)
+    nf,ch = size(x)
+    y = vec(permutedims(convert(Matrix{Float32},x)))
+    wavwrite!(filename, y, nf, ch, fs, bps, t0, t1)
+end
 
 
 

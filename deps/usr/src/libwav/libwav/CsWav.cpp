@@ -243,7 +243,7 @@ size_t CsWav::ExtractData_flt(const char * FilePath) {
 
 	fclose(f);
 	delete[] EachFrame;
-	printf("total: %zd bytes\n", BytesTotal);
+	//printf("total: %zd bytes\n", BytesTotal);
 	return BytesTotal;
 }
 
@@ -280,7 +280,7 @@ size_t CsWav::ExtractData_16b(const char * FilePath) {
 	fclose(f);
 	delete[] EachFrame;
 	delete[] Sample;
-	printf("total: %zd bytes\n", BytesTotal);
+	//printf("total: %zd bytes\n", BytesTotal);
 	return BytesTotal;
 }
 
@@ -342,7 +342,7 @@ float * CsWav::GetFrameMatrix(const char * FilePath) {
 		return NULL;	
 	}
 	size_t MetaInfoBytesAll = ExtractMetaInfo(FilePath);
-	printf("wav header: %zd bytes\n", MetaInfoBytesAll);
+	//printf("wav header: %zd bytes\n", MetaInfoBytesAll);
 	//PrintMetaInfo();
 	
 
@@ -353,8 +353,8 @@ float * CsWav::GetFrameMatrix(const char * FilePath) {
 		printf("wav frame-matrix alloc error!\n");
 		return NULL;
 	}
-	else 
-		printf("wav frame-matrix alloc ok.\n");
+	//else 
+		//printf("wav frame-matrix alloc ok.\n");
 	
 	// dispatch tree based on header info
 	size_t BytesRead = 0;
@@ -409,7 +409,7 @@ float * CsWav::GetFrameMatrix(const char * FilePath) {
 		printf("Read Error: A-Law / u-Law not supported: %x \n", MetaInfo.fmt_wFormatTag);
 		fmt = 0;
 	}
-	printf("bytes read from file: %zd\n", BytesRead);
+	//printf("bytes read from file: %zd\n", BytesRead);
 	return FrameMatrix;
 }
 

@@ -42,3 +42,12 @@ int64_t wavwrite(char * filepath, float * dat, int64_t nf, int64_t ch, int64_t f
 		b = w.SaveFile(filepath, t0, t1, (size_t)bps);
 	return (int64_t)b;
 }		
+
+
+int64_t wavmeta(char * filepath)
+{
+	CsWav w;
+	w.ExtractMetaInfo(filepath);
+	w.PrintMetaInfo();
+	return (int64_t)0;
+}

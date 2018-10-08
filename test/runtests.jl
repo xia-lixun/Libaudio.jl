@@ -4,20 +4,21 @@ using Test
 
 function libwav_test()
     filename = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
+    Libaudio.wavmeta(filename)
     r,fs = Libaudio.wavread(filename)
     # m = Libaudio.wavinfo(filename)
     # x = zeros(Float32, m[1] * m[2])
     # Libaudio.wavread!(filename, x)
     # y = permutedims(reshape(x, m[2], m[1]))
-    ys,sr,bps = Libaudio.wavread_(filename)
-    yd,sr,bps = Libaudio.wavread_(filename, Float64)
+    ys,sr,bps = Libaudio.wavread(filename)
+    yd,sr,bps = Libaudio.wavread(filename, Float64)
 
-    Libaudio.wavwrite_(filename[1:end-4] * "_s32.wav", ys, Int(fs), 32)
-    Libaudio.wavwrite_(filename[1:end-4] * "_s24.wav", ys, Int(fs), 24)
-    Libaudio.wavwrite_(filename[1:end-4] * "_s16.wav", ys, Int(fs), 16)
-    Libaudio.wavwrite_(filename[1:end-4] * "_d32.wav", yd, Int(fs), 32)
-    Libaudio.wavwrite_(filename[1:end-4] * "_d24.wav", yd, Int(fs), 24)
-    Libaudio.wavwrite_(filename[1:end-4] * "_d16.wav", yd, Int(fs), 16)
+    Libaudio.wavwrite(filename[1:end-4] * "_s32.wav", ys, Int(fs), 32)
+    Libaudio.wavwrite(filename[1:end-4] * "_s24.wav", ys, Int(fs), 24)
+    Libaudio.wavwrite(filename[1:end-4] * "_s16.wav", ys, Int(fs), 16)
+    Libaudio.wavwrite(filename[1:end-4] * "_d32.wav", yd, Int(fs), 32)
+    Libaudio.wavwrite(filename[1:end-4] * "_d24.wav", yd, Int(fs), 24)
+    Libaudio.wavwrite(filename[1:end-4] * "_d16.wav", yd, Int(fs), 16)
     (r,ys,yd)
 end
 let (r,ys,yd) = libwav_test()
@@ -29,10 +30,10 @@ end
 
 function wavio_test()
     path = Libaudio.modulepath(Libaudio)
-    x,fs,nb = Libaudio.wavread(joinpath(path,"test/acqua_ieee_male_250ms_10450ms.wav"), "native", 1:48000)
-    Libaudio.wavwrite(round.(Int32,x*(2^23)), joinpath(path,"test/foo24.wav"), 48000, 24)
-    Libaudio.wavwrite(round.(Int16,x*(2^15)), joinpath(path,"test/foo16.wav"), 48000, 16)
-    Libaudio.wavwrite(x, joinpath(path,"test/foo32.wav"), 48000, 32)
+    x,fs,nb = Libaudio.wavread(joinpath(path,"test/acqua_ieee_male_250ms_10450ms.wav"))
+    Libaudio.wavwrite(joinpath(path,"test/foo24.wav"), x, Int(fs), 24)
+    Libaudio.wavwrite(joinpath(path,"test/foo16.wav"), x, Int(fs), 16)
+    Libaudio.wavwrite(joinpath(path,"test/foo32.wav"), x, Int(fs), 32)
 
     x16,fs,nb = Libaudio.wavread(joinpath(path,"test/foo16.wav"))
     x24,fs,nb = Libaudio.wavread(joinpath(path,"test/foo24.wav"))
@@ -40,9 +41,9 @@ function wavio_test()
     x, x16, x24, x32
 end
 let (x, x16, x24, x32) = wavio_test()
-    @test isapprox(x16, x, atol=1e-2)
+    @test isapprox(x16, x, atol=1)
     @test isapprox(x24, x, atol=1e-4)
-    @test isapprox(x32, x, atol=1e-6)
+    @test isapprox(x32, x, atol=1e-7)
     @info "==== (1) wavio_test ===="
 end
 
@@ -51,11 +52,11 @@ function wavalid_test()
     path = Libaudio.modulepath(Libaudio)
     x = 0.1 * randn(192000,8)
     y = convert(Matrix{Float32},x)
-    Libaudio.wavwrite(x, joinpath(path,"test/valid_d2f.wav"), 48000, 32)
-    Libaudio.wavwrite(y, joinpath(path,"test/valid_f2f.wav"), 48000, 32)
+    Libaudio.wavwrite(joinpath(path,"test/valid_d2f.wav"), x, 48000, 32)
+    Libaudio.wavwrite(joinpath(path,"test/valid_f2f.wav"), y, 48000, 32)
 
-    xd,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_d2f.wav"),"double")
-    yf1,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_f2f.wav"), "native")
+    xd,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_d2f.wav"), Float64)
+    yf1,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_f2f.wav"), Float32)
     yf2,fs,nb = Libaudio.wavread(joinpath(path,"test/valid_f2f.wav"))
     x,xd,y,yf1,yf2
 end
@@ -390,7 +391,7 @@ end
 
 function resample_test()
     mp = Libaudio.modulepath(Libaudio)
-    x, fs = Libaudio.wavread(joinpath(mp, "test/acqua_ieee_male_250ms_10450ms.wav"), "double")
+    x, fs = Libaudio.wavread(joinpath(mp, "test/acqua_ieee_male_250ms_10450ms.wav"), Float64)
     y = Libaudio.resample_vhq(x, fs, 16000)
     # wavwrite(y, joinpath(mp, "test/acqua_ieee_male_250ms_10450ms_16khz.wav"), Fs=16000, nbits=32)
     z = Libaudio.resample_vhq(y, 16000, 48000)
@@ -410,10 +411,10 @@ end
 
 function idealmask_test()
     path = Libaudio.modulepath(Libaudio)
-    x1,fs = Libaudio.wavread(joinpath(path, "test/female_with_1s_silence_48khz.wav"), "double")
-    x2,fs = Libaudio.wavread(joinpath(path, "test/acqua_ieee_male_250ms_10450ms.wav"), "double")
+    x1,fs = Libaudio.wavread(joinpath(path, "test/female_with_1s_silence_48khz.wav"), Float64)
+    x2,fs = Libaudio.wavread(joinpath(path, "test/acqua_ieee_male_250ms_10450ms.wav"), Float64)
     binarymask, y1, y2 = Libaudio.idealsoftmask(x1[:,1], x2[:,1], fs)
-    Libaudio.wavwrite([y1 y2], joinpath(path, "test/idealmask.wav"), fs, 32)
+    Libaudio.wavwrite(joinpath(path, "test/idealmask.wav"), [y1 y2], fs, 32)
     sdr1 = Libaudio.sigdistratio([zeros(8000);y1[:,1];zeros(8000)], x1[:,1])
     sdr2 = Libaudio.sigdistratio([zeros(8000);y2[:,1];zeros(8000)], x2[:,1])
     (sdr1, sdr2)
@@ -424,6 +425,5 @@ let (sdr1, sdr2) = idealmask_test()
     @test sdr2 > 11
     @info "==== (21) idealmask_test ===="
 end
-
 
 

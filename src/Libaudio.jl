@@ -12,15 +12,25 @@ using Random
 
 
 modulepath(name) = realpath(joinpath(dirname(pathof(name)),".."))
+folder() = "C:/DRIVERS/Julia/"
+
+
 """
     init(module)
 
 install binary dependencies to "C:\\Drivers\\Julia\\"
 """
 function __init__()
-    mkpath("C:\\Drivers\\Julia\\")
-    cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libsoxr.dll"), "C:\\Drivers\\Julia\\libsoxr.dll", force=true)
-    cp(joinpath(modulepath(Libaudio), "deps/usr/lib/libwav.dll"), "C:\\Drivers\\Julia\\libwav.dll", force=true)
+    root = folder()
+    isdir(root) || mkpath(root)
+    mp = modulepath(Libaudio)
+
+    t1 = joinpath(root, "libsoxr.dll")
+    t2 = joinpath(root, "libwav.dll")
+
+    isfile(t1) || cp(joinpath(mp, "deps/usr/lib/libsoxr.dll"), t1, force=true)
+    isfile(t2) || cp(joinpath(mp, "deps/usr/lib/libwav.dll"), t2, force=true)
+    
     # plotly()
 end
 

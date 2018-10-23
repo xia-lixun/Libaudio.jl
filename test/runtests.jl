@@ -2,6 +2,18 @@ import Libaudio
 using Test
 
 
+function wav2pcm_test()
+    foo = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
+    Libaudio.wav2pcm(foo, foo[1:end-4] * "-16.pcm", 16)
+    Libaudio.wav2pcm(foo, foo[1:end-4] * "-24.pcm", 24)
+    Libaudio.wav2pcm(foo, foo[1:end-4] * "-32.pcm", 32)
+    nothing
+end
+let y = wav2pcm_test()
+    # use Adobe Audition to check the results
+end
+
+
 function libwav_test()
     filename = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
     Libaudio.wavmeta(filename)

@@ -1749,6 +1749,30 @@ end
 
 
 
+function wav2pcm(wav, pcm, bps)
+    x, fs = wavread(wav)
+    y = vec(permutedims(x))
+    open(pcm, "w") do io
+        if bps == 32
+            write(io, y)
+        elseif bps == 24
+            for i in y
+                v = round(Int32, i * (2^23))
+                write(io, convert(UInt8, v & 0x000000ff))
+                write(io, convert(UInt8, v>>8 & 0x000000ff))
+                write(io, convert(UInt8, v>>16 & 0x000000ff))
+            end
+        elseif bps == 16
+            write(io, round.(Int16, y * (2^15)))
+        else
+            error("wav2pcm: bits not supported $(bps)-bit")
+        end
+    end
+end
+
+
+
+
 
 """
 get current time stamp in String with fixed length of 23

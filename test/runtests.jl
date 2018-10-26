@@ -7,7 +7,7 @@ using Test
 function labelnorm_test()
     foo = joinpath(Libaudio.modulepath(Libaudio), "test/alexa_collect.wav")
     lab = joinpath(Libaudio.modulepath(Libaudio), "test/alexa_collect.TextGrid")
-    spl1 = Libaudio.labelnorm(foo, lab, foo[1:end-4]*"_norm.wav", 16)
+    spl1 = Libaudio.labelnorm(foo, lab, foo[1:end-4]*"_norm.wav", 16, "a", 0, 0)
     @info spl1
     spl2 = Libaudio.labellevel(foo[1:end-4]*"_norm.wav", lab)
     @info spl2

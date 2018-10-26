@@ -11,8 +11,9 @@ function labelnorm_test()
     @info spl1
     spl2 = Libaudio.labellevel(foo[1:end-4]*"_norm.wav", lab)
     @info spl2
+    spl2
 end
-let (spl1, spl2) = labelnorm_test()
+let spl2 = labelnorm_test()
     @test all(isapprox.(spl2, 106.281, atol=0.01))
     @info "==== (0) labelnorm_test ===="
 end

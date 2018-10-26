@@ -2,6 +2,24 @@ import Libaudio
 using Test
 
 
+
+
+function labelnorm_test()
+    foo = joinpath(Libaudio.modulepath(Libaudio), "test/alexa_collect.wav")
+    lab = joinpath(Libaudio.modulepath(Libaudio), "test/alexa_collect.TextGrid")
+    spl1 = Libaudio.labelnorm(foo, lab, foo[1:end-4]*"_norm.wav", 16)
+    @info spl1
+    spl2 = Libaudio.labellevel(foo[1:end-4]*"_norm.wav", lab)
+    @info spl2
+end
+let (spl1, spl2) = labelnorm_test()
+    @test all(isapprox.(spl2, 106.281, atol=0.01))
+    @info "==== (0) labelnorm_test ===="
+end
+
+
+
+
 function wav2pcm_test()
     foo = joinpath(Libaudio.modulepath(Libaudio), "test/acqua_ieee_male_250ms_10450ms.wav")
     Libaudio.wav2pcm(foo, foo[1:end-4] * "-16.pcm", 16)
@@ -11,6 +29,7 @@ function wav2pcm_test()
 end
 let y = wav2pcm_test()
     # use Adobe Audition to check the results
+    @info "==== (0) wav2pcm_test ===="
 end
 
 

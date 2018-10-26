@@ -1332,6 +1332,86 @@ end
 
 
 
+
+"""
+    labellevel(source, label, weight="a")
+
+calculate the levels of labelled mono channel wav source file, 
+label file shall in TextGrid format used in Praat. 
+note that the reference level is hyperthetical so the result
+is only for relative measurement!
+
+# Arguments
+- 'source': mono channel wav file containing the sequencial sound events
+- 'label': corresponding TextGrid labelling
+- 'weight': default to a-weighting
+"""
+function labellevel(source, label, weight="a")
+    lab = textgrid_prase(label)
+    dat, fs = wavread(source)
+    cal = rand(Float32, 10fs) .- 0.5f0
+
+    level = zeros(length(lab))
+    for (i,k) in enumerate(lab)
+        t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
+        level[i] = t[1]
+    end
+    level
+end
+
+
+"""
+    labelnorm(source, label, head=5, interval=4)
+    
+calculate the levels of the labelled mono channel wav source file,
+and uniform various levels to common, then peak normalize the uniformed
+and finally align them with heading silence 'head' seconds and interval
+'interval' seconds.
+
+# Arguments
+- 'source': mono channel wav file containing the sequencial sound events
+- 'label': corresponding labelling file in TextGrid format
+- 'output': destination wav file
+- 'nb': number of bits per sample for output file, default to ieee_float32
+- 'weight': default to a-weighting
+- 'head': number of seconds of silence inserted to the head
+- 'interval': number of seconds of silence inserted between events 
+"""
+function labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4)
+    lab = textgrid_prase(label)
+    dat, fs = wavread(source)
+    cal = rand(Float32, 10fs) .- 0.5f0
+
+    n = length(lab)
+    level = zeros(n)
+    for (i,k) in enumerate(lab)
+        t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
+        level[i] = t[1]
+    end
+
+    nh = round(Int,head*fs)
+    ni = round(Int,interval*fs)
+    y = zeros(Float32, nh+size(dat,1)+n*ni, size(dat,2))
+    g = level[1] .- level
+    d = nh
+
+    for (i,k) in enumerate(lab)
+        l = round(Int,k[2]*fs)
+        r = round(Int,k[3]*fs)
+        y[d+l:d+r,1] = dat[l:r,1] * (10^(g[i]/20))
+        d += ni
+    end
+
+    wavwrite(output, y/maximum(y), fs, nb)
+    level
+end
+
+
+
+
+
+
+
 """
     resample_vhq(input, fi, fo)
 

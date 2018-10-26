@@ -1,0 +1,138 @@
+File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0 
+xmax = 15.162208333333334 
+tiers? <exists> 
+size = 1 
+item []: 
+    item [1]:
+        class = "IntervalTier" 
+        name = "label" 
+        xmin = 0 
+        xmax = 15.162208333333334 
+        intervals: size = 31 
+        intervals [1]:
+            xmin = 0 
+            xmax = 0.03068454792234019 
+            text = "" 
+        intervals [2]:
+            xmin = 0.03068454792234019 
+            xmax = 0.6686134613207928 
+            text = "alexa1" 
+        intervals [3]:
+            xmin = 0.6686134613207928 
+            xmax = 0.882735687904969 
+            text = "" 
+        intervals [4]:
+            xmin = 0.882735687904969 
+            xmax = 1.5485357157881123 
+            text = "alexa2" 
+        intervals [5]:
+            xmin = 1.5485357157881123 
+            xmax = 1.6861463022308267 
+            text = "" 
+        intervals [6]:
+            xmin = 1.6861463022308267 
+            xmax = 2.4727403884908323 
+            text = "alexa3" 
+        intervals [7]:
+            xmin = 2.4727403884908323 
+            xmax = 2.7318331218351632 
+            text = "" 
+        intervals [8]:
+            xmin = 2.7318331218351632 
+            xmax = 3.693745902417856 
+            text = "alexa4" 
+        intervals [9]:
+            xmin = 3.693745902417856 
+            xmax = 4.26025778231779 
+            text = "" 
+        intervals [10]:
+            xmin = 4.26025778231779 
+            xmax = 4.98361369803221 
+            text = "alexa5" 
+        intervals [11]:
+            xmin = 4.98361369803221 
+            xmax = 5.334950547209764 
+            text = "" 
+        intervals [12]:
+            xmin = 5.334950547209764 
+            xmax = 6.141514582063112 
+            text = "alexa6" 
+        intervals [13]:
+            xmin = 6.141514582063112 
+            xmax = 6.500500363708732 
+            text = "" 
+        intervals [14]:
+            xmin = 6.500500363708732 
+            xmax = 7.29707942426541 
+            text = "alexa7" 
+        intervals [15]:
+            xmin = 7.29707942426541 
+            xmax = 7.569067510109538 
+            text = "" 
+        intervals [16]:
+            xmin = 7.569067510109538 
+            xmax = 8.205886981919472 
+            text = "alexa8" 
+        intervals [17]:
+            xmin = 8.205886981919472 
+            xmax = 8.781213888488516 
+            text = "" 
+        intervals [18]:
+            xmin = 8.781213888488516 
+            xmax = 9.557823000451851 
+            text = "alexa9" 
+        intervals [19]:
+            xmin = 9.557823000451851 
+            xmax = 9.840857598478912 
+            text = "" 
+        intervals [20]:
+            xmin = 9.840857598478912 
+            xmax = 10.36784235302546 
+            text = "alexa10" 
+        intervals [21]:
+            xmin = 10.36784235302546 
+            xmax = 10.616219913921173 
+            text = "" 
+        intervals [22]:
+            xmin = 10.616219913921173 
+            xmax = 11.25145663594583 
+            text = "alexa11" 
+        intervals [23]:
+            xmin = 11.25145663594583 
+            xmax = 11.686357738645297 
+            text = "" 
+        intervals [24]:
+            xmin = 11.686357738645297 
+            xmax = 12.186715895067387 
+            text = "alexa12" 
+        intervals [25]:
+            xmin = 12.186715895067387 
+            xmax = 12.556796100179303 
+            text = "" 
+        intervals [26]:
+            xmin = 12.556796100179303 
+            xmax = 13.201381663108869 
+            text = "alexa13" 
+        intervals [27]:
+            xmin = 13.201381663108869 
+            xmax = 13.626933955227841 
+            text = "" 
+        intervals [28]:
+            xmin = 13.626933955227841 
+            xmax = 14.183873632664403 
+            text = "alexa14" 
+        intervals [29]:
+            xmin = 14.183873632664403 
+            xmax = 14.491375996885493 
+            text = "" 
+        intervals [30]:
+            xmin = 14.491375996885493 
+            xmax = 15.036111810311516 
+            text = "alexa15" 
+        intervals [31]:
+            xmin = 15.036111810311516 
+            xmax = 15.162208333333334 
+            text = "" 

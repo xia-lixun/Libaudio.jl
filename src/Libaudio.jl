@@ -1410,7 +1410,7 @@ end
 
 
 """
-    labelnorm(source, label, head=5, interval=4)
+    labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4, randgen=false, randcount=40))
     
 calculate the levels of the labelled mono channel wav source file,
 and uniform various levels to common, then peak normalize the uniformed
@@ -1425,8 +1425,10 @@ and finally align them with heading silence 'head' seconds and interval
 - 'weight': default to a-weighting
 - 'head': number of seconds of silence inserted to the head
 - 'interval': number of seconds of silence inserted between events 
+- 'randgen': enable random mapping to 'output'
+- 'randcount': number of events mapped into 'output'
 """
-function labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4)
+function labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4, randgen=false, randcount=40)
     lab = textgrid_prase(label)
     dat, fs = wavread(source)
     cal = rand(Float32, 10fs) .- 0.5f0
@@ -1440,17 +1442,28 @@ function labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4)
 
     nh = round(Int,head*fs)
     ni = round(Int,interval*fs)
-    y = zeros(Float32, nh+size(dat,1)+n*ni, size(dat,2))
+    p = randgen ? randcount : n
+    y = zeros(Float32, nh+size(dat,1)+(p+3)*ni, size(dat,2))
+
     g = level[1] .- level
     d = nh
 
-    for (i,k) in enumerate(lab)
-        l = round(Int,k[2]*fs)
-        r = round(Int,k[3]*fs)
-        y[d+l:d+r,1] = dat[l:r,1] * (10^(g[i]/20))
-        d += ni
+    if randgen
+        for i = 1:p
+            q = rand(1:n)
+            l = round(Int, lab[q][2]*fs)
+            r = round(Int, lab[q][3]*fs)
+            y[d+1:d+r-l+1,1] = dat[l:r,1] * (10^(g[q]/20))
+            d += (r-l+1+ni)
+        end
+    else
+        for (i,k) in enumerate(lab)
+            l = round(Int,k[2]*fs)
+            r = round(Int,k[3]*fs)
+            y[d+l:d+r,1] = dat[l:r,1] * (10^(g[i]/20))
+            d += ni
+        end
     end
-
     wavwrite(output, y/maximum(y), fs, nb)
     level
 end

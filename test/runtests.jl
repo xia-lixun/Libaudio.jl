@@ -11,6 +11,7 @@ function labelnorm_test()
     @info spl1
     spl2 = Libaudio.labellevel(foo[1:end-4]*"_norm.wav", lab)
     @info spl2
+    spl3 = Libaudio.labelnorm(foo, lab, foo[1:end-4]*"_norm_rand40.wav", 16, "a", 5, 5, true, 40)
     spl2
 end
 let spl2 = labelnorm_test()

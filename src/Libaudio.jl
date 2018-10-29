@@ -161,47 +161,100 @@ end
 
 
 """
-    xcorr(u,v)
+    xcorr(u, v, normalize=false, bias=1e-9)
 
-compute the cross-correlation of two vectors.
+compute the cross-correlation of two vectors. if 'normalize' is true then L2 norm
+is divided over all windows; 
+
+# Arguments
+- 'u': symbol
+- 'v': signal
+- 'normalize': normalized cross correlation
 """
-function xcorr(u, v)
+function xcorr(u, v, normalize=false)
+    s = deepcopy(u)
+    x = deepcopy(v)
+
     su = size(u,1); sv = size(v,1)
     if su < sv
         u = [u;zeros(eltype(u),sv-su)]
     elseif sv < su
         v = [v;zeros(eltype(v),su-sv)]
     end
-    conv(u, reverse(conj(v), dims=1))
-end
+    r = conv(u, reverse(conj(v), dims=1))
 
-
-"""
-    xcorrcoeff(s, x)
-
-cross correlation with normalization, unlike xcorr which will zero-pad both argument
-to the same length, this function results in strictly length(s) + length(x) - 1
-"""
-function xcorrcoeff(s::AbstractVector, x::AbstractVector)
-    # BLAS.set_num_threads(Sys.CPU_THREADS)
-    ns = length(s)
-    nx = length(x)
-    n = max(nx, ns)
-    nsm1 = ns-1
-    xe = [zeros(eltype(x), nsm1); x; zeros(eltype(x), nsm1)]
-    y = zeros(promote_type(eltype(x), eltype(s)), nsm1+nx)
-
-    d = eps(eltype(s))
-    kernel = dot(s,s)
-    m = nsm1+nx+1
-    for i = m-1:-1:1
-        p = view(xe,i:i+nsm1)
-        @fastmath @inbounds y[m-i] = dot(p,s) / (sqrt(kernel * dot(p,p)) + d)
+    if normalize
+        ns = length(s)
+        m = 2length(x)
+        s2 = dot(s,s)
+        x = [zeros(eltype(x), length(x)-1); x; zeros(eltype(x), ns)]
+        w = eps(eltype(x))
+        @inbounds for i = m-1:-1:1
+            w = abs(w + x[i]^2 - x[i+ns]^2)
+            r[m-i] /= sqrt(w * s2)
+        end            
     end
-    return y
+    r
 end
 
 
+
+# function xcorrcoeff(s::AbstractVector, x::AbstractVector)
+#     # BLAS.set_num_threads(Sys.CPU_THREADS)
+#     ns = length(s)
+#     nx = length(x)
+#     n = max(nx, ns)
+#     nsm1 = ns-1
+#     xe = [zeros(eltype(x), nsm1); x; zeros(eltype(x), nsm1)]
+#     y = zeros(promote_type(eltype(x), eltype(s)), nsm1+nx)
+
+#     d = eps(eltype(s))
+#     kernel = dot(s,s)
+#     m = nsm1+nx+1
+#     for i = m-1:-1:1
+#         p = view(xe,i:i+nsm1)
+#         @fastmath @inbounds y[m-i] = dot(p,s) / (sqrt(kernel * dot(p,p)) + d)
+#     end
+#     return y
+# end
+
+
+# """
+#     xcorrcoeff(s, x)
+
+# cross correlation with normalization, unlike xcorr which will zero-pad both argument
+# to the same length, this function results in strictly length(s) + length(x) - 1
+# """
+# function xcorrcoeff(s::AbstractVector{T}, x::AbstractVector{T}) where T<:LinearAlgebra.BlasFloat
+#     ns = length(s)
+#     nx = length(x)
+#     nsx = ns + nx
+#     ns1 = ns - 1
+
+#     u = [zeros(T, ns1); x; zeros(T, ns)]
+#     y = zeros(T, ns1+nx)
+    
+#     s2 = dot(s,s)
+#     d = eps(eltype(s))
+#     x2 = zero(T)
+
+#     @inbounds for i = ns1+nx:-1:1
+#         x2 += (u[i]^2 - u[i+ns]^2)
+#         # x2 < 0 && (@info "+" i u[i] u[i+ns] x2) 
+#         y[nsx-i] = dot(view(u,i:i+ns1), s) / (sqrt(x2*s2)+d)
+#     end
+#     y
+# end
+
+
+
+
+
+"""
+    xcorrcoeff_threaded(s, x)
+
+This is for experimentation only as it usually would not meet production quality
+"""
 function xcorrcoeff_threaded(s::AbstractVector{T}, x::AbstractVector{T}) where T<:LinearAlgebra.BlasFloat
     ns = length(s)
     nx = length(x)
@@ -586,7 +639,7 @@ extract symbols based on correlation coefficients.
 - 'rep::Integer': number of symbols can be found within the signal
 - 'dither': dB value for dithering, default to -160dB
 """
-function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=false, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
+function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-120; vision=false, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
     x = x + (rand(T,size(x)) .- T(0.5)) * T(10^(dither/20))
     n = length(x) 
     m = length(s)
@@ -596,11 +649,7 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     peakspf2 = zeros(T, rep)
 
     # do the cross correlation and sort the maxima
-    if normcoeff
-        ℝ = xcorrcoeff(s, x)
-    else
-        ℝ = xcorr(s, x)
-    end
+    ℝ = xcorr(s, x, normcoeff)
 
     root = "C:/Drivers/Julia/run.log"
     verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak value $(maximum(ℝ))")

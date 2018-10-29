@@ -15,7 +15,7 @@ function labelnorm_test()
 end
 let spl2 = labelnorm_test()
     @test all(isapprox.(spl2, 106.2, atol=0.5))
-    @info "==== (0) labelnorm_test ===="
+    @info "==== (0.1) labelnorm_test ===="
 end
 
 
@@ -30,7 +30,7 @@ function wav2pcm_test()
 end
 let y = wav2pcm_test()
     # use Adobe Audition to check the results
-    @info "==== (0) wav2pcm_test ===="
+    @info "==== (0.2) wav2pcm_test ===="
 end
 
 
@@ -56,7 +56,7 @@ end
 let (r,ys,yd) = libwav_test()
     @test isapprox(r, ys, atol=1e-7)
     @test isapprox(r, yd, atol=1e-7)
-    @info "==== (0) libwav_test ===="
+    @info "==== (0.3) libwav_test ===="
 end
 
 
@@ -144,12 +144,29 @@ end
 
 
 function xcorrcoeff_test()
-    x = Libaudio.xcorrcoeff(collect(1.0:1.0:4.0), collect(4.0:-1.0:-4.0))
-    y = Libaudio.xcorrcoeff_threaded(collect(1.0:1.0:4.0), collect(4.0:-1.0:-4.0))
-    (x,y)
+    x = randn(48000)
+    s = x[24000:32000]
+    r64 = Libaudio.xcorr(s, x, true)
+    t64 = Libaudio.xcorrcoeff_threaded(s, x)
+
+    x = randn(Float32,48000)
+    s = x[24000:32000]
+    r32 = Libaudio.xcorr(s, x, true)
+    t32 = Libaudio.xcorrcoeff_threaded(s, x)
+
+    (r64, t64, r32, t32)
 end
-let (x,y) = xcorrcoeff_test()
-    @test x == y
+let (r64, t64, r32, t32) = xcorrcoeff_test()
+    (m64r, i64r) = findmax(r64)
+    (m64t, i64t) = findmax(t64)
+    (m32r, i32r) = findmax(r32)
+    (m32t, i32t) = findmax(t32)
+    @info m64r, m64t, m32r, m32t
+    @info i64r, i64t, i32r, i32t
+    @test i64r == 24001
+    @test i64t == 24001
+    @test i32r == 24001
+    @test i32t == 24001
     @info "==== (6) xcorrcoeff_test ===="
 end
 
@@ -289,27 +306,42 @@ in this extreme case T=Float32 is insufficient in accuracy but I doubt for norma
 single precision would be enough?
 """
 function extractsymbol_test(T)
-    a = randn(T,8192)
-    b = randn(T,8192)
-    c = randn(T,8192)
-    t = randn(T,512)
-    lbs, pk, pkf, m = Libaudio.extractsymbol([zeros(T,1); T(0.05)*t; a; T(0.001)*t; b; T(0.1)*t; c; T(0.01)*t], t, 4, verbose=false, normcoeff=true)
-    lbsx, pkx, pkfx, mx = Libaudio.extractsymbol([zeros(T,1); t; a; t; b; t; c; t], t, 4, verbose=false)
+    m = 10000
+    n = 500
+    a = randn(T,5m)
+    t = randn(T,n)
+    lbs1, pk1, pkf1, m1 = Libaudio.extractsymbol([a[1:m]; T(0.05)*t; a[m+1:2m]; T(0.001)*t; a[2m+1:3m]; T(0.1)*t; a[3m+1:4m]; T(0.01)*t; a[4m+1:5m]], t, 4, -120, verbose=true, normcoeff=true)
+    lbs2, pk2, pkf2, m2 = Libaudio.extractsymbol([a[1:m]; t; a[m+1:2m]; t; a[2m+1:3m]; t; a[3m+1:4m]; t; a[4m+1:5m]], t, 4, -120, verbose=true, normcoeff=true)
     # @info "extract symbol test: xcorrcoeff enabled" lbs pk pkf
     # @info "extract symbol test: xcorrcoeff disabled" lbsx pkx pkfx
-    (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx)
+    (lbs1, pk1, pkf1, m1, lbs2, pk2, pkf2, m2)
 end
-let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test(Float64)
-    @test lbs[1] == 1 + 1
-    @test lbs[2] == lbs[1]-1+(512+8192)+1
-    @test lbs[3] == lbs[2]-1+(512+8192)+1
-    @test lbs[4] == lbs[3]-1+(512+8192)+1
-    @test lbsx[1] == 1 + 1
-    @test lbsx[2] == lbsx[1]-1+(512+8192)+1
-    @test lbsx[3] == lbsx[2]-1+(512+8192)+1
-    @test lbsx[4] == lbsx[3]-1+(512+8192)+1
-    @info "==== (13) extractsymbol_test ===="
+let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test(Float64), (lbs32, pk32, pkf32, m32, lbsx32, pkx32, pkfx32, mx32) = extractsymbol_test(Float32)
+    p = 10000
+    q = 500
+    @test lbs[1] == 1+p
+    @test lbs[2] == lbs[1]-1+(q+p)+1
+    @test lbs[3] == lbs[2]-1+(q+p)+1
+    @test lbs[4] == lbs[3]-1+(q+p)+1
+    @test lbsx[1] == 1+p
+    @test lbsx[2] == lbsx[1]-1+(q+p)+1
+    @test lbsx[3] == lbsx[2]-1+(q+p)+1
+    @test lbsx[4] == lbsx[3]-1+(q+p)+1 
+
+    @test lbs32[1] == 1+p
+    @test lbs32[2] == lbs32[1]-1+(q+p)+1
+    @test lbs32[3] == lbs32[2]-1+(q+p)+1
+    @test lbs32[4] == lbs32[3]-1+(q+p)+1
+    @test lbsx32[1] == 1+p
+    @test lbsx32[2] == lbsx32[1]-1+(q+p)+1
+    @test lbsx32[3] == lbsx32[2]-1+(q+p)+1
+    @test lbsx32[4] == lbsx32[3]-1+(q+p)+1 
+    @info "==== (13.1) extractsymbol_test ===="
 end
+
+
+
+
 
 
 
@@ -416,7 +448,7 @@ function sigdistratio_test()
     return sdr
 end
 let sdr = sigdistratio_test()
-    @test sdr > 160
+    @test sdr > 120
     @info "==== (19) sigdistratio_test ===="
 end
 

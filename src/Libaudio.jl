@@ -13,12 +13,13 @@ using Random
 
 modulepath(name) = realpath(joinpath(dirname(pathof(name)),".."))
 folder() = "C:/DRIVERS/Julia/"
+logfile() = "run.log"
 
 
 """
     init(module)
 
-install binary dependencies to "C:\\Drivers\\Julia\\"
+install binary dependencies to folder()
 """
 function __init__()
     root = folder()
@@ -184,69 +185,42 @@ function xcorr(u, v, normalize=false)
     r = conv(u, reverse(conj(v), dims=1))
 
     if normalize
+        T = eltype(x)
         ns = length(s)
         m = 2length(x)
         s2 = dot(s,s)
-        x = [zeros(eltype(x), length(x)-1); x; zeros(eltype(x), ns)]
-        w = eps(eltype(x))
+        x = [zeros(T, length(x)-1); x; zeros(T, ns)]
+        d = eps(T)
+
+        w::BigFloat = convert(BigFloat, eps(eltype(x)))
         @inbounds for i = m-1:-1:1
             w = abs(w + x[i]^2 - x[i+ns]^2)
-            r[m-i] /= sqrt(w * s2)
-        end            
+            r[m-i] = r[m-i] / (sqrt(convert(T,w) * s2) + d)
+        end
     end
     r
 end
 
 
 
-# function xcorrcoeff(s::AbstractVector, x::AbstractVector)
-#     # BLAS.set_num_threads(Sys.CPU_THREADS)
-#     ns = length(s)
-#     nx = length(x)
-#     n = max(nx, ns)
-#     nsm1 = ns-1
-#     xe = [zeros(eltype(x), nsm1); x; zeros(eltype(x), nsm1)]
-#     y = zeros(promote_type(eltype(x), eltype(s)), nsm1+nx)
+function xcorrcoeff(s::AbstractVector, x::AbstractVector)
+    # BLAS.set_num_threads(Sys.CPU_THREADS)
+    ns = length(s)
+    nx = length(x)
+    n = max(nx, ns)
+    nsm1 = ns-1
+    xe = [zeros(eltype(x), nsm1); x; zeros(eltype(x), nsm1)]
+    y = zeros(promote_type(eltype(x), eltype(s)), nsm1+nx)
 
-#     d = eps(eltype(s))
-#     kernel = dot(s,s)
-#     m = nsm1+nx+1
-#     for i = m-1:-1:1
-#         p = view(xe,i:i+nsm1)
-#         @fastmath @inbounds y[m-i] = dot(p,s) / (sqrt(kernel * dot(p,p)) + d)
-#     end
-#     return y
-# end
-
-
-# """
-#     xcorrcoeff(s, x)
-
-# cross correlation with normalization, unlike xcorr which will zero-pad both argument
-# to the same length, this function results in strictly length(s) + length(x) - 1
-# """
-# function xcorrcoeff(s::AbstractVector{T}, x::AbstractVector{T}) where T<:LinearAlgebra.BlasFloat
-#     ns = length(s)
-#     nx = length(x)
-#     nsx = ns + nx
-#     ns1 = ns - 1
-
-#     u = [zeros(T, ns1); x; zeros(T, ns)]
-#     y = zeros(T, ns1+nx)
-    
-#     s2 = dot(s,s)
-#     d = eps(eltype(s))
-#     x2 = zero(T)
-
-#     @inbounds for i = ns1+nx:-1:1
-#         x2 += (u[i]^2 - u[i+ns]^2)
-#         # x2 < 0 && (@info "+" i u[i] u[i+ns] x2) 
-#         y[nsx-i] = dot(view(u,i:i+ns1), s) / (sqrt(x2*s2)+d)
-#     end
-#     y
-# end
-
-
+    d = eps(eltype(s))
+    kernel = dot(s,s)
+    m = nsm1+nx+1
+    for i = m-1:-1:1
+        p = view(xe,i:i+nsm1)
+        @fastmath @inbounds y[m-i] = dot(p,s) / (sqrt(kernel * dot(p,p)) + d)
+    end
+    return y
+end
 
 
 
@@ -629,51 +603,76 @@ end
 
 
 """
-    extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-160; vision=false, verbose=false)
+    extractsymbol(x, s, sn, dither=-160; vision=false, verbose=true, normcoeff=true, xaxis=800, yaxis=400)
 
 extract symbols based on correlation coefficients.
 
 # Arguments
 - 'x::AbstractVector{T}': signal that contains the symbol
 - 's::AbstractVector{T}': symbol template
-- 'rep::Integer': number of symbols can be found within the signal
+- 'sn::Integer': number of symbols can be found within the signal
 - 'dither': dB value for dithering, default to -160dB
 """
-function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer, dither=-120; vision=false, verbose=true, normcoeff=false, xaxis=800, yaxis=400) where T<:LinearAlgebra.BlasFloat
-    x = x + (rand(T,size(x)) .- T(0.5)) * T(10^(dither/20))
+function extractsymbol(
+    x::AbstractVector{T}, 
+    s::AbstractVector{T}, 
+    sn::Integer, 
+    dither=-160;
+    
+    vision=false, 
+    verbose=true, 
+    normcoeff=true, 
+    xaxis=800, 
+    yaxis=400) where T<:LinearAlgebra.BlasFloat
+    
+
+    @assert sn > 0 "number of symbols to be detect must be positive integer"
+    root = joinpath(folder(), logfile()) 
+
+    x += T(10^(dither/20)) * (rand(T,size(x)) .- T(0.5))
     n = length(x) 
     m = length(s)
-    y = zeros(T, rep * m)
-    peaks = zeros(Int64, rep)
-    lbs = zeros(Int64, rep)
-    peakspf2 = zeros(T, rep)
+    y = zeros(T, sn * m)
+    pk = zeros(Int64, sn)
+    lbs = zeros(Int64, sn)
+    pkp = zeros(T, sn)
 
-    # do the cross correlation and sort the maxima
-    ℝ = xcorr(s, x, normcoeff)
-
-    root = "C:/Drivers/Julia/run.log"
-    verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak value $(maximum(ℝ))")
-    # verbose && printstyled("libaudio.extractsymbol: peak value $(maximum(ℝ))\n", color=:light_blue)
+    function event(msg::String)
+        id = randstring()
+        wavwrite(joinpath(dirname(root), id * "_Libaudio_extractsymbol_failure_x.wav"), x[:,:], 48000, 32)
+        wavwrite(joinpath(dirname(root), id * "_Libaudio_extractsymbol_failure_s.wav"), s[:,:], 48000, 32)
+        printl(root, :light_red, nows() * " | libaudio.extractsymbol: $(msg) -> please check $(id)")
+        nothing
+    end
 
     # vision && (box = plot(x, size=(xaxis,yaxis)))
-    𝓡 = sort(ℝ[localmaxima(ℝ)], rev=true)
-    isempty(𝓡) && (return (y, diff(peaks)))
+    r = xcorr(s, x, normcoeff)
+    rlm = sort([(i, r[i]) for i in findall(identity, localmaxima(r))], rev=true, by=z->z[2])
+    if isempty(rlm)
+        event("empty xcorr local maxima sorted")
+        return (false, lbs, pk, pkp, y)
+    end
+    for i = 1:sn
+        verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: xcorr local maxima sorted $i -> $(rlm[i])")
+    end
 
-    # find the anchor point
-    ploc = findfirst(isequal(𝓡[1]), ℝ)
-    peaks[1] = ploc
-    lb = n - ploc + 1
+    pv = 1                  # peak valid counter
+    pl = rlm[pv][1]         # peak location
+    pk[pv] = pl             # peak valid locations
+
+    pf2a, pf2b = parabolicfit2(r[pl-1:pl+1])
+    pkp[pv] = (pl-1) + (-0.5pf2b/pf2a)
+    verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak $(pv) location $(pl) ~$(pkp[pv])") 
+
+    lb = n - pl + 1
+    if lb ≤ 0
+        event("left bound index non-positive = main peak")
+        return (false, lbs, pk, pkp, y)
+    end 
     rb = min(lb + m - 1, length(x))
     y[1:1+rb-lb] = x[lb:rb]
-    ip = 1
-    lbs[ip] = lb
-    # 1+rb-lb < m && printstyled("libaudio.extractsymbol: incomplete segment extracted!\n", color=:light_red)
+    lbs[pv] = lb
     1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
-
-    pf2a, pf2b = parabolicfit2(ℝ[ploc-1:ploc+1])
-    peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)
-    # verbose && printstyled("libaudio.extractsymbol: peak $(ip) location $(ploc) $(peakspf2[ip])\n", color=:light_blue) 
-    verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak $(ip) location $(ploc) $(peakspf2[ip])") 
 
     # if vision
     #     box_hi = maximum(x[lb:rb])
@@ -684,22 +683,27 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
     #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
     # end
 
-    if rep > 1
-        for i = 2:length(𝓡)
-            ploc = findfirst(isequal(𝓡[i]), ℝ)
-            if sum(abs.(peaks[1:ip] .- ploc) .> m) == ip
-                ip += 1
-                peaks[ip] = ploc
+    if sn > 1
+        for i = 2:length(rlm)
+            pl = rlm[i][1]
+            if all(abs.(pk[1:pv] .- pl) .> m)
+                pv += 1
+                pk[pv] = pl
 
-                pf2a, pf2b = parabolicfit2(ℝ[ploc-1:ploc+1])
-                peakspf2[ip] = (ploc-1) + (-0.5pf2b/pf2a)            
-                # verbose && printstyled("libaudio.extractsymbol: peak $ip location $(ploc) $(peakspf2[ip])\n", color=:light_blue)
-                verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak $ip location $(ploc) $(peakspf2[ip])")
+                pf2a, pf2b = parabolicfit2(r[pl-1:pl+1])
+                pkp[pv] = (pl-1) + (-0.5pf2b/pf2a)            
+                verbose && printl(root, :light_blue, nows() * " | libaudio.extractsymbol: peak $(pv) location $(pl) ~$(pkp[pv])")
 
-                lb = n - ploc + 1
+                lb = n - pl + 1
+                if lb ≤ 0
+                    event("left bound index non-positive = sub peaks")
+                    return (false, lbs, pk, pkp, y)
+                end 
                 rb = min(lb + m - 1, length(x))
-                lbs[ip] = lb
-                
+                y[1+(pv-1)*m : 1+(pv-1)*m+(rb-lb)] = x[lb:rb]
+                lbs[pv] = lb
+                1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
+
                 # if vision
                 #     box_hi = maximum(x[lb:rb])
                 #     box_lo = minimum(x[lb:rb])    
@@ -708,22 +712,18 @@ function extractsymbol(x::AbstractVector{T}, s::AbstractVector{T}, rep::Integer,
                 #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
                 #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
                 # end
-
-                y[1+(ip-1)*m : 1+(ip-1)*m+(rb-lb)] = x[lb:rb]
-                # 1+rb-lb < m && printstyled("libaudio.extractsymbol: incomplete segment extracted!\n", color=:light_red)
-                1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
-                
-                if ip == rep
+                if pv == sn
                     break
                 end
             end
         end
-        peaks = sort(peaks)
+        pk = sort(pk)
         lbs = sort(lbs)
-        peakspf2 = sort(peakspf2)
+        pkp = sort(pkp)
     end
+
     # vision && display(box)
-    return (lbs, peaks, peakspf2, y)
+    return (true, lbs, pk, pkp, y)
 end
 
 
@@ -756,12 +756,13 @@ function db20upa(
     symbolhigh = 0.0, 
     fl = 100, 
     fh = 12000, 
-    calibratorreading = 114.0; 
+    calibratorreading = 114.0;
+
     verbose = false,
-    normcoeff = false) where T<:LinearAlgebra.BlasFloat
+    normcoeff = true) where T<:LinearAlgebra.BlasFloat
 
 
-    # calculate dbspl of all channels of x
+    root = joinpath(folder(), logfile())
     x = measurement
     s = symbol
     channels = size(x,2)
@@ -779,20 +780,18 @@ function db20upa(
         s = s[1+floor(Int, symbollow*p.rate) : floor(Int, symbolhigh*p.rate)]        
     end
 
-    root = "C:/Drivers/Julia/run.log"
+    sane = true
     for c = 1:channels
-        lbs, pk, pkpf, xp = extractsymbol(view(x,:,c), s, repeat, verbose=verbose, normcoeff=normcoeff)
-        # verbose && printstyled("libaudio.db20upa: signal left bound location $(lbs./p.rate) (sec) $(lbs) (samples)\n", color=:light_blue)
+        flag, lbs, pk, pkpf, xp = extractsymbol(view(x,:,c), s, repeat, verbose=verbose, normcoeff=normcoeff)
+        sane = sane && flag
         verbose && printl(root, :light_blue, nows() * " | libaudio.db20upa: signal left bound location $(lbs./p.rate) (sec) $(lbs) (samples)")
 
         xps,xpn = powerspectrum(xp, p, false, false, hann)
-        xpsu = mean(xps, dims=2)
-                
+        xpsu = mean(xps, dims=2) 
         dbspl[c] = 10log10(sum(view(xpsu,hl:hh))) + (calibratorreading-offset)
-        # verbose && printstyled("libaudio.db20upa: channel $c level $(dbspl[c]) dBSPL\n", color=:light_blue)           
         verbose && printl(root, :light_blue, nows() * " | libaudio.db20upa: channel $c level $(dbspl[c]) dB")           
     end
-    return dbspl
+    return (sane, dbspl)
 end
 
 
@@ -839,15 +838,14 @@ function spl(
     calibratorreading = 114.0;
     weighting = "none",
     verbose = true,
-    normcoeff = false)
+    normcoeff = true)
 
     if lowercase(weighting) == "a"
         b, a = weighting_a(p.rate)
         r = filt(b, a, calibration)
         x = filt(b, a, measurement)
         s = filt(b, a, symbol)
-        root = "C:/Drivers/Julia/run.log"
-        # verbose && printstyled("libaudio.spl: a-wighting applied\n", color=:light_blue)
+        root = joinpath(folder(), logfile())
         verbose && printl(root, :light_blue, nows() * " | libaudio.spl: a-wighting applied")
 
     else
@@ -1098,21 +1096,24 @@ function decode_syncsymbol(encoded::AbstractMatrix, symbol::AbstractVector, t_de
     sym = convert(AbstractVector{T}, symbol)
     n = size(encoded,2)
     locat = zeros(Int,2,n)
+
+    sane = true
     for i = 1:n
-        lbs, pks, pks2, mgd = extractsymbol(view(encoded,:,i), sym, 2)
+        flag, lbs, pks, pks2, mgd = extractsymbol(view(encoded,:,i), sym, 2, verbose=true, normcoeff=true)
+        sane = sane && flag
         locat[:,i] = lbs
     end
 
     Δm = view(locat,2,:) - view(locat,1,:)
     Δt = length(symbol) + round(Int, t_decay * fs) + round(Int, t_signal * fs)
     Δr = view(locat,1,:) .- minimum(view(locat,1,:))
-    root = "C:/Drivers/Julia/run.log"
+    root = joinpath(folder(), logfile())
     # printstyled("libaudio.decode_syncsymbol: Δm Δt Δr $(Δm) $(Δt) $(Δr)\n", color=:light_blue) 
     printl(root, :light_blue, nows() * " | libaudio.decode_syncsymbol: Δm Δt Δr $(Δm) $(Δt) $(Δr)") 
 
     #lb = lbs[1] + size(symbol,1) + round(Int, t_decay * fs)
     #rb = lbs[2] - 1
-    locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs)
+    (sane, locat[1,:] .+ length(symbol) .+ round(Int, t_decay * fs))
 end
 
 
@@ -1402,7 +1403,7 @@ function labellevel(source, label, weight="a")
 
     level = zeros(length(lab))
     for (i,k) in enumerate(lab)
-        t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
+        flag, t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
         level[i] = t[1]
     end
     level
@@ -1436,7 +1437,7 @@ function labelnorm(source, label, output, nb=32, weight="a", head=5, interval=4,
     n = length(lab)
     level = zeros(n)
     for (i,k) in enumerate(lab)
-        t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
+        flag, t = spl(cal, dat, view(dat,:,1), 1, WindowFrame(fs,16384,16384÷4), k[2], k[3], weighting=weight, normcoeff=true)
         level[i] = t[1]
     end
 
@@ -1496,7 +1497,7 @@ function resample_vhq(input::AbstractVector{T}, fi, fo) where T<:Real
                     Float64.(fi), Float64.(fo), 1, block, length(block), C_NULL, resampled, length(resampled), resampled_n_return, C_NULL, C_NULL, C_NULL)
     @assert Int(soxerr) == 0
     na = Int(resampled_n_return[1])
-    root = "C:/Drivers/Julia/run.log"
+    root = joinpath(folder(), logfile())
     # printstyled("libaudio.resample_vhq: theoretical/actual samples $(n) $(na)\n", color=:light_blue) 
     printl(root, :light_blue, nows() * " | libaudio.resample_vhq: theoretical/actual samples $(n) $(na)") 
 
@@ -1530,7 +1531,7 @@ please prepend/append zeros to x for robust operation. result will be in dB unit
     - 't::AbstractVector{T}': signal template, the golden reference
 """
 function sigdistratio(x::AbstractVector{T}, t::AbstractVector{T}) where T<:AbstractFloat
-    lbs, pks, pks2, y = extractsymbol(x, t, 1)
+    flag, lbs, pks, pks2, y = extractsymbol(x, t, 1)
     sdr = 10log10.(sum(t.^2,dims=1)./sum((t-y).^2,dims=1))
     sdr[1]
 end

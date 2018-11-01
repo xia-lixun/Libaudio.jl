@@ -309,15 +309,16 @@ single precision would be enough?
 function extractsymbol_test(T)
     m = 10000
     n = 500
-    a = randn(T,5m)
-    t = randn(T,n)
-    lbs1, pk1, pkf1, m1 = Libaudio.extractsymbol([a[1:m]; T(0.05)*t; a[m+1:2m]; T(0.001)*t; a[2m+1:3m]; T(0.1)*t; a[3m+1:4m]; T(0.01)*t; a[4m+1:5m]], t, 4, -120, verbose=true, normcoeff=true)
-    lbs2, pk2, pkf2, m2 = Libaudio.extractsymbol([a[1:m]; t; a[m+1:2m]; t; a[2m+1:3m]; t; a[3m+1:4m]; t; a[4m+1:5m]], t, 4, -120, verbose=true, normcoeff=true)
+    a = randn(T,5m+n)
+    t = a[5m+1:5m+n]
+    flag1, lbs1, pk1, pkf1, m1 = Libaudio.extractsymbol([a[1:m]; T(0.05)*t; a[m+1:2m]; T(0.001)*t; a[2m+1:3m]; T(0.1)*t; a[3m+1:4m]; T(0.01)*t; a[4m+1:5m]], t, 4, verbose=true, normcoeff=true)
+    flag2, lbs2, pk2, pkf2, m2 = Libaudio.extractsymbol([a[1:m]; t; a[m+1:2m]; t; a[2m+1:3m]; t; a[3m+1:4m]; t; a[4m+1:5m]], t, 4, verbose=true, normcoeff=true)
     # @info "extract symbol test: xcorrcoeff enabled" lbs pk pkf
     # @info "extract symbol test: xcorrcoeff disabled" lbsx pkx pkfx
-    (lbs1, pk1, pkf1, m1, lbs2, pk2, pkf2, m2)
+    (flag1 && flag2, lbs1, pk1, pkf1, m1, lbs2, pk2, pkf2, m2)
 end
-let (lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test(Float64), (lbs32, pk32, pkf32, m32, lbsx32, pkx32, pkfx32, mx32) = extractsymbol_test(Float32)
+let (sane, lbs, pk, pkf, m, lbsx, pkx, pkfx, mx) = extractsymbol_test(Float64), (sane32, lbs32, pk32, pkf32, m32, lbsx32, pkx32, pkfx32, mx32) = extractsymbol_test(Float32)
+    @info sane, sane32
     p = 10000
     q = 500
     @test lbs[1] == 1+p
@@ -354,14 +355,15 @@ function spl_test()
     calib1000, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\2018-06-22T15-38-53-76+42AB_114.0__26XX_12AA_0dB_UFX.wav"))
     sp, fs = Libaudio.wavread(joinpath(Libaudio.modulepath(Libaudio), "test\\acqua_ieee_male_250ms_10450ms.wav"))
 
-    aanw = Libaudio.spl(calib250[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
-    abnw = Libaudio.spl(calib1000[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
-    aaaw = Libaudio.spl(calib250[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A")
-    abaw = Libaudio.spl(calib1000[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A") 
-    return (aanw, abnw, aaaw, abaw)
+    s1, aanw = Libaudio.spl(calib250[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
+    s2, abnw = Libaudio.spl(calib1000[:,1], sp[:,1:1], sp[:,1], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 114.0)
+    s3, aaaw = Libaudio.spl(calib250[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A")
+    s4, abaw = Libaudio.spl(calib1000[:,1], sp[:,2:2], sp[:,2], 1, Libaudio.WindowFrame(fs,16384,16384÷4), 0.3, 10.3, 100, 12000, 105.4, weighting="A") 
+    return (s1 && s2 && s3 && s4, aanw, abnw, aaaw, abaw)
 end
-let (aanw, abnw, aaaw, abaw) = spl_test()
+let (sane, aanw, abnw, aaaw, abaw) = spl_test()
     # @info "spl test results" aanw abnw aaaw abaw
+    @info sane
     @test abs(aanw[1] - abnw[1]) < 0.5
     @test isapprox(aanw[1], 128.166, atol=1e-3)
     @test isapprox(abnw[1], 127.993, atol=1e-3)
@@ -399,10 +401,13 @@ function symbol_test()
     se = Libaudio.encode_syncsymbol(0.5, s, 0.1, x, fs, 2, -6)
     Libaudio.decode_syncsymbol(se[:,2:2], s, 0.1, size(x,1)/fs, fs)
 end
-let loc = symbol_test()
+let (sane, loc) = symbol_test()
+    @info sane
     @test loc[1] == convert(Int, 0.5 * 48000 + length(Libaudio.symbol_expsinesweep(800, 2000, 1, 48000)) + 0.1 * 48000) + 1
     @info "==== (16) symbol_test ===="
 end
+
+
 
 
 function list_test()
@@ -449,7 +454,7 @@ function sigdistratio_test()
     return sdr
 end
 let sdr = sigdistratio_test()
-    @test sdr > 120
+    @test sdr > 160
     @info "==== (19) sigdistratio_test ===="
 end
 

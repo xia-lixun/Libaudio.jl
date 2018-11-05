@@ -1,6 +1,6 @@
 module Libaudio
 
-# using Plots
+using PyPlot
 using FFTW
 using SHA
 using Dates
@@ -31,8 +31,6 @@ function __init__()
 
     isfile(t1) || cp(joinpath(mp, "deps/usr/lib/libsoxr.dll"), t1, force=true)
     isfile(t2) || cp(joinpath(mp, "deps/usr/lib/libwav.dll"), t2, force=true)
-    
-    # plotly()
 end
 
 
@@ -603,7 +601,7 @@ end
 
 
 """
-    extractsymbol(x, s, sn, dither=-160; vision=false, verbose=true, normcoeff=true, xaxis=800, yaxis=400)
+    extractsymbol(x, s, sn, dither=-160; vision=true, verbose=true, normcoeff=true, fig=1, uidisplay=false, xaxis=10, yaxis=2)
 
 extract symbols based on correlation coefficients.
 
@@ -619,11 +617,13 @@ function extractsymbol(
     sn::Integer, 
     dither=-160;
     
-    vision=false, 
+    vision=true, 
     verbose=true, 
-    normcoeff=true, 
-    xaxis=800, 
-    yaxis=400) where T<:LinearAlgebra.BlasFloat
+    normcoeff=true,
+    fig=1,
+    uidisplay=false, 
+    xaxis=10, 
+    yaxis=2) where T<:LinearAlgebra.BlasFloat
     
 
     @assert sn > 0 "number of symbols to be detect must be positive integer"
@@ -645,7 +645,12 @@ function extractsymbol(
         nothing
     end
 
-    # vision && (box = plot(x, size=(xaxis,yaxis)))
+    if vision
+        PyPlot.figure(num=fig, figsize=(xaxis,yaxis))
+        PyPlot.grid()
+        PyPlot.plot(x)
+    end
+
     r = xcorr(s, x, normcoeff)
     rlm = sort([(i, r[i]) for i in findall(identity, localmaxima(r))], rev=true, by=z->z[2])
     if isempty(rlm)
@@ -674,14 +679,15 @@ function extractsymbol(
     lbs[pv] = lb
     1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
 
-    # if vision
-    #     box_hi = maximum(x[lb:rb])
-    #     box_lo = minimum(x[lb:rb])        
-    #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-    #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-    #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-    #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-    # end
+    if vision
+        PyPlot.figure(fig)
+        box_hi = maximum(x[lb:rb])
+        box_lo = minimum(x[lb:rb])        
+        PyPlot.plot([lb,rb], [box_hi,box_hi], color = "red", linewidth=1)
+        PyPlot.plot([lb,rb], [box_lo,box_lo], color = "red", linewidth=1)
+        PyPlot.plot([lb,lb], [box_hi,box_lo], color = "red", linewidth=1)
+        PyPlot.plot([rb,rb], [box_hi,box_lo], color = "red", linewidth=1)
+    end
 
     if sn > 1
         for i = 2:length(rlm)
@@ -704,14 +710,15 @@ function extractsymbol(
                 lbs[pv] = lb
                 1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
 
-                # if vision
-                #     box_hi = maximum(x[lb:rb])
-                #     box_lo = minimum(x[lb:rb])    
-                #     plot!(box,[lb,rb],[box_hi, box_hi], color = "red", lw=1)
-                #     plot!(box,[lb,rb],[box_lo, box_lo], color = "red", lw=1)
-                #     plot!(box,[lb,lb],[box_hi, box_lo], color = "red", lw=1)
-                #     plot!(box,[rb,rb],[box_hi, box_lo], color = "red", lw=1)
-                # end
+                if vision
+                    PyPlot.figure(fig)
+                    box_hi = maximum(x[lb:rb])
+                    box_lo = minimum(x[lb:rb])    
+                    PyPlot.plot([lb,rb], [box_hi, box_hi], color = "red", linewidth=1)
+                    PyPlot.plot([lb,rb], [box_lo, box_lo], color = "red", linewidth=1)
+                    PyPlot.plot([lb,lb], [box_hi, box_lo], color = "red", linewidth=1)
+                    PyPlot.plot([rb,rb], [box_hi, box_lo], color = "red", linewidth=1)
+                end
                 if pv == sn
                     break
                 end
@@ -722,7 +729,18 @@ function extractsymbol(
         pkp = sort(pkp)
     end
 
-    # vision && display(box)
+    if vision
+        PyPlot.figure(fig)
+        PyPlot.title("Symbol Extraction") 
+        if uidisplay 
+            PyPlot.show()
+        else
+            imageid = replace(string(now()), r"[:.]" => "-")
+            PyPlot.savefig(imageid * ".eps")
+            PyPlot.savefig(imageid * ".png")
+        end
+        PyPlot.close(fig)
+    end
     return (true, lbs, pk, pkp, y)
 end
 

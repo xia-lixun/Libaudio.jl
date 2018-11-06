@@ -646,6 +646,7 @@ function extractsymbol(
     end
 
     if vision
+        PyPlot.ioff()
         PyPlot.figure(num=fig, figsize=(xaxis,yaxis))
         PyPlot.grid()
         PyPlot.plot(x)

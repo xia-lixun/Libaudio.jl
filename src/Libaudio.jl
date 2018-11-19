@@ -518,7 +518,7 @@ mel2hz(mel) = 700 * (10 ^ (mel * 1.0 / 2595) - 1)
 sigmoid(x::T) where T <: Number = one(T) / (one(T) + exp(-x))
 sigmoidinv(x::T) where T <: Number = log(x / (one(T)-x))  # x ∈ (0, 1)
 rms(x,dim) = sqrt.(sum((x.-mean(x,dim)).^2,dim)/size(x,dim))
-rms(x) = sqrt(sum((x-mean(x)).^2)/length(x))
+rms(x) = sqrt(sum((x.-mean(x)).^2)/length(x))
 
 
 

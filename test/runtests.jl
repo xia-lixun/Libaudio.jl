@@ -1,6 +1,57 @@
 import Libaudio
+using HDF5
+using FFTW
 using Test
 
+
+
+function smoothspectrum_test()
+    handelpath = joinpath(Libaudio.modulepath(Libaudio), "test/handel.mat")
+    y = h5read(handelpath, "y")
+    y = y[:,1]
+    Fs = h5read(handelpath, "Fs")
+    Fs = Fs[1]
+    Z = h5read(handelpath, "Z")
+    Z = Z[:,1]
+
+    Y = fft(y)
+    NFFT = length(y)
+    if iseven(NFFT)
+        Nout = (NFFT÷2)+1
+    else
+        Nout = (NFFT+1)÷2
+    end
+    Y = Y[1:Nout]
+    f = ((0:Nout-1)/NFFT)*Fs
+    Y = 20log10.(abs.(Y)/NFFT)
+    Noct = 3
+    Zt = Libaudio.smoothspectrum(Y, collect(f), Noct)
+    (Z, Zt)
+end
+let (Z, Zt) = smoothspectrum_test()
+    @test isapprox(maximum(abs.(Z-Zt)), 3e-12, atol=1e-12) 
+    @info "==== (0.01) smoothspectrum_test ===="
+end
+
+
+
+function mps_test()
+    mpspath = joinpath(Libaudio.modulepath(Libaudio), "test/mps.mat")
+    data = h5read(mpspath, "data")
+    mpsr = h5read(mpspath, "mps")
+    
+    mpsrn = Vector{ComplexF64}(undef,length(mpsr))
+    for (i,j) in enumerate(mpsr)
+        mpsrn[i] = j.data[1] + (j.data[2] * im)
+    end
+
+    mpst = Libaudio.mps(fft(data[:,1]))
+    (mpsrn, mpst)
+end
+let (mpsr, mpst) = mps_test()
+    @test  isapprox(maximum(abs.(abs.(mpsr)-abs.(mpst))), 4e-17, atol=1e-17)
+    @info "==== (0.02) mps_test ===="
+end
 
 
 

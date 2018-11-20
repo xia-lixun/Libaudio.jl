@@ -1961,4 +1961,182 @@ end
 
 
 
+
+
+
+
+"""
+    clipdb(s, cutoff)
+
+clip magnitude of s at its maximum + cutoff in db
+algorithm author: Julius O. Smith III
+
+# Arguments
+    - 's': spectrum either as vector or 1xn matrix
+# Example
+    clip(s, -100) makes sure the minimum magnitude of s is not more than 100 db below its
+    maximum magnitude. if s is zero nothing is done
+"""
+function clipdb(s, cutoff)
+    clipped = s
+    as = abs.(s)
+    mas = maximum(as)
+    mas==0 && (return clipped)
+    cutoff >= 0 && (return clipped)
+    thresh = (10^(cutoff/20)) * mas
+    clipped[findall(x->x<thresh, as)] .= thresh
+    clipped
+end
+
+
+"""
+    fold(r)
+
+fold left wing of vector in "FFT buffer format" onto right wing 
+"""
+function fold(r::AbstractVector{T}) where T
+    # m,n = size(r)
+    # m*n != m+n-1 && error("Libaudio.fold: input must be a vector") 
+    n = length(r)
+
+    # flipped = 0
+    # if (m > n)
+    #   n = m
+    #   r = permutedims(r)
+    #   flipped = 1
+    # end
+
+    if n < 3
+        rw = r
+    elseif isodd(n) 
+        nt = (n+1)÷2
+        rw = [r[1]; (r[2:nt]+conj.(r[n:-1:nt+1])); zeros(T,n-nt)]
+    else 
+        nt = n÷2
+        rf = [r[2:nt]; zero(T)] 
+        rf = rf + conj.(r[n:-1:nt+1])
+        rw = [r[1]; rf; zeros(T,n-nt-1)]
+    end 
+ 
+    # if flipped
+    #   rw = permutedims(rw) 
+    # end    
+end
+
+
+"""
+    mps(s)
+
+create minimum-phase spectrum sm from complex spectrum s 
+algorithm author: Julius O. Smith III
+"""
+function mps(s) 
+    sm = exp.( fft( fold( ifft( log.( clipdb(s,-100) )))))
+end
+
+
+
+"""
+    gauss_f(fx, F, Noct)
+
+GAUSS_F calculate frequency-domain Gaussian with unity gain  
+G = GAUSS_F(F_X,F,NOCT) calculates a frequency-domain Gaussian function
+for frequencies F_X, with centre frequency F and bandwidth F/NOCT.
+"""
+function gauss_f(fx, F, Noct)    
+    sigma = (F/Noct) / pi                          # standard deviation
+    g = exp.(-(((fx.-F).^2) ./ (2.0*(sigma^2))))    # Gaussian
+    g = g ./ sum(g)                                # normalise magnitude    
+end
+    
+
+
+"""
+# SMOOTHSPECTRUM Apply 1/N-octave smoothing to a frequency spectrum
+#  
+#    X_OCT = IOSR.DSP.SMOOTHSPECTRUM(X,F,NOCT) applies 1/NOCT-octave
+#    smoothing to the frequency spectrum contained in vector X sampled at
+#    frequencies in vector F. X can be a log-, magnitude-, or
+#    power-spectrum. Setting Noct to 0 results in no smoothing.
+#    
+#    Algorithm
+#    
+#    The function calculates the i-th smoothed spectral coefficient X_OCT(i)
+#    as the sum of the windowed spectrum. The window is a Gaussian whose
+#    centre frequency is F(i), and whose standard deviation is proportional
+#    to F(i)/NOCT.
+#  
+#    Example
+#  
+#        % Calculate the 1/3-octave-smoothed power spectral density of the Handel example
+#        % load signal
+#        load handel.mat
+#        
+#        % take fft
+#        Y = fft(y);
+#        
+#        % keep only meaningful frequencies
+#        NFFT = length(y);
+#        if mod(NFFT,2)==0
+#            Nout = (NFFT/2)+1;
+#        else
+#            Nout = (NFFT+1)/2;
+#        end
+#        Y = Y(1:Nout);
+#        f = ((0:Nout-1)'./NFFT).*Fs;
+#        
+#        % put into dB
+#        Y = 20*log10(abs(Y)./NFFT);
+#        
+#        % smooth
+#        Noct = 3;
+#        Z = smoothspectrum(Y,f,Noct);
+#        
+#        % plot
+#        figure
+#        semilogx(f,Y,f,Z)
+#        grid on
+#  
+#     Copyright 2016 University of Surrey.        
+#     calculates a Gaussian function for each frequency, deriving a
+#     bandwidth for that frequency
+"""
+function smoothspectrum(X::Vector{Float64}, f::Vector{Float64}, Noct)
+    x_oct = copy(X)                      # initial spectrum
+    if Noct > 0                          # don't bother if no smoothing
+        for i = findfirst(u->u>0, f)[1]:length(f)
+            g = gauss_f(f, f[i], Noct)
+            x_oct[i] = sum(g.*X)
+        end
+        # remove undershoot when X is positive
+        if all(X .>= 0)
+            x_oct[x_oct .< 0] = 0.0
+        end
+    end
+    x_oct
+end
+
+
+
+"""
+    freqz(x,n)
+
+frequency response of impulse response x with unit circle divided by n 
+
+# Arguments
+    -'x': vector of data type Real
+    -'fs': sample rate
+    -'n': unit circle divided by
+"""
+function freqz(x::AbstractVector{T}, fs, n=512) where T <: Real
+    nfft = 2n
+    nx = length(x)
+    nxt = nextpow(2, nx)
+    h = fft(mean(reshape([x; zeros(T,nxt-nx)], nfft, nxt÷nfft), dims=2))
+    h = h[1:n+1] / nfft
+    f = collect(((0:n)/nfft)*fs)
+    (f,h)
+end
+
+
 end # module

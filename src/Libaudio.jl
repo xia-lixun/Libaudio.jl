@@ -620,7 +620,6 @@ function extractsymbol(
     vision=true, 
     verbose=true, 
     normcoeff=true,
-    fig=1,
     uidisplay=false, 
     xaxis=10, 
     yaxis=2) where T<:LinearAlgebra.BlasFloat
@@ -647,8 +646,7 @@ function extractsymbol(
 
     if vision
         PyPlot.ioff()
-        PyPlot.figure(num=fig, figsize=(xaxis,yaxis))
-        PyPlot.grid()
+        PyPlot.figure(num="Libaudio.extractsymbol", figsize=(xaxis,yaxis))
         PyPlot.plot(x)
     end
 
@@ -681,7 +679,7 @@ function extractsymbol(
     1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
 
     if vision
-        PyPlot.figure(fig)
+        PyPlot.figure("Libaudio.extractsymbol")
         box_hi = maximum(x[lb:rb])
         box_lo = minimum(x[lb:rb])        
         PyPlot.plot([lb,rb], [box_hi,box_hi], color = "red", linewidth=1)
@@ -712,7 +710,7 @@ function extractsymbol(
                 1+rb-lb < m && printl(root, :light_red, nows() * " | libaudio.extractsymbol: incomplete segment extracted")
 
                 if vision
-                    PyPlot.figure(fig)
+                    PyPlot.figure("Libaudio.extractsymbol")
                     box_hi = maximum(x[lb:rb])
                     box_lo = minimum(x[lb:rb])    
                     PyPlot.plot([lb,rb], [box_hi, box_hi], color = "red", linewidth=1)
@@ -731,8 +729,8 @@ function extractsymbol(
     end
 
     if vision
-        PyPlot.figure(fig)
-        PyPlot.title("Symbol Extraction") 
+        PyPlot.figure("Libaudio.extractsymbol")
+        PyPlot.grid()
         if uidisplay 
             PyPlot.show()
         else
@@ -740,7 +738,7 @@ function extractsymbol(
             PyPlot.savefig(imageid * ".eps")
             PyPlot.savefig(imageid * ".png")
         end
-        PyPlot.close(fig)
+        PyPlot.close("Libaudio.extractsymbol")
     end
     return (true, lbs, pk, pkp, y)
 end

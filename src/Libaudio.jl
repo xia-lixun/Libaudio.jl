@@ -730,7 +730,7 @@ function extractsymbol(
 
     if vision
         PyPlot.figure("Libaudio.extractsymbol")
-        PyPlot.grid()
+        PyPlot.grid(true)
         if uidisplay 
             PyPlot.show()
         else
